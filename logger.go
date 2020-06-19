@@ -2,9 +2,9 @@ package tracing
 
 import (
 	"context"
-	"strings"
 
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 )
 
 type key string
@@ -26,83 +26,54 @@ func ActionFromContext(ctx context.Context) string {
 	return ""
 }
 
-type BaseLogger interface {
-	Debug(args ...interface{})
-	Debugf(template string, args ...interface{})
-	Info(args ...interface{})
-	Infof(template string, args ...interface{})
-	Warn(args ...interface{})
-	Warnf(template string, args ...interface{})
-	Error(args ...interface{})
-	Errorf(template string, args ...interface{})
-}
-
 type TraceLogger struct {
-	logger BaseLogger
+	logger *zap.SugaredLogger
 }
 
-func NewTraceLogger(logger BaseLogger) *TraceLogger {
-	return &TraceLogger{logger: logger}
+func NewTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
+	return &TraceLogger{logger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()}
 }
 
 func (l *TraceLogger) Debug(ctx context.Context, args ...interface{}) {
-	l.logger.Debug(argsWithAction(ctx, args)...)
+	l.withAction(ctx).Debug(args...)
 }
 
 func (l *TraceLogger) Debugf(ctx context.Context, template string, args ...interface{}) {
-	l.logger.Debugf(templateWithAction(ctx, template), args...)
+	l.withAction(ctx).Debugf(template, args...)
 }
 
 func (l *TraceLogger) Info(ctx context.Context, args ...interface{}) {
-	l.logger.Info(argsWithAction(ctx, args)...)
+	l.withAction(ctx).Info(args...)
 }
 
 func (l *TraceLogger) Infof(ctx context.Context, template string, args ...interface{}) {
-	l.logger.Infof(templateWithAction(ctx, template), args...)
+	l.withAction(ctx).Infof(template, args...)
 }
 
 func (l *TraceLogger) Warn(ctx context.Context, args ...interface{}) {
-	l.logger.Warn(argsWithAction(ctx, args)...)
+	l.withAction(ctx).Warn(args...)
 }
 
 func (l *TraceLogger) Warnf(ctx context.Context, template string, args ...interface{}) {
-	l.logger.Warnf(templateWithAction(ctx, template), args...)
+	l.withAction(ctx).Warnf(template, args...)
 }
 
 func (l *TraceLogger) Error(ctx context.Context, args ...interface{}) {
 	withErrorTag(ctx)
-	l.logger.Error(argsWithAction(ctx, args)...)
+	l.withAction(ctx).Error(args...)
 }
 
 func (l *TraceLogger) Errorf(ctx context.Context, template string, args ...interface{}) {
 	withErrorTag(ctx)
-	l.logger.Errorf(templateWithAction(ctx, template), args...)
+	l.withAction(ctx).Errorf(template, args...)
 }
 
-func argsWithAction(ctx context.Context, args []interface{}) []interface{} {
-	if action := withAction(ctx); action != "" {
-		// Подставляем первым аргументом action ID
-		args = append([]interface{}{action}, args...)
-	}
-
-	return args
-}
-
-func templateWithAction(ctx context.Context, template string) string {
-	if action := withAction(ctx); action != "" {
-		// Добавляем перед template action ID
-		return strings.Join([]string{action, template}, "")
-	}
-
-	return template
-}
-
-func withAction(ctx context.Context) string {
+func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
 	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return strings.Join([]string{"action=", val, "; "}, "")
+		return l.logger.With(ActionKey, val)
 	}
 
-	return ""
+	return l.logger
 }
 
 func withErrorTag(ctx context.Context) {
