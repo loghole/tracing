@@ -108,5 +108,9 @@ func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 }
 
 func (b SpanBuilder) Build() Span {
+	if b.name == "" {
+		b.name = callerName()
+	}
+
 	return Span{span: b.tracer.StartSpan(b.name, b.options...)}
 }
