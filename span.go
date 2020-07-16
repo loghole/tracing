@@ -101,7 +101,11 @@ func callerName() string {
 	var pc [1]uintptr
 
 	runtime.Callers(_skipCallers, pc[:])
+
 	f := runtime.FuncForPC(pc[0])
+	if f == nil {
+		return "unknown"
+	}
 
 	list := strings.Split(f.Name(), "/")
 
