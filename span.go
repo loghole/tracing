@@ -58,6 +58,14 @@ func (s Span) Context(ctx context.Context) context.Context {
 	return opentracing.ContextWithSpan(ctx, s.span)
 }
 
+func (s Span) GetSpanContext() opentracing.SpanContext {
+	if s.span != nil {
+		return s.span.Context()
+	}
+
+	return nil
+}
+
 func InjectMap(ctx context.Context) map[string]string {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		carrier := opentracing.TextMapCarrier{}
