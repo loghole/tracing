@@ -1,8 +1,8 @@
 package tracing
 
 import (
-	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"runtime"
 	"strings"
@@ -66,39 +66,33 @@ func (s Span) GetSpanContext() opentracing.SpanContext {
 	return nil
 }
 
-func InjectMap(ctx context.Context) map[string]string {
+func InjectMap(ctx context.Context, carrier map[string]string) error {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		carrier := opentracing.TextMapCarrier{}
-
-		err := span.Tracer().Inject(span.Context(), opentracing.TextMap, carrier)
-		if err == nil {
-			return carrier
+		err := span.Tracer().Inject(span.Context(), opentracing.TextMap, opentracing.TextMapCarrier(carrier))
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func InjectBinary(ctx context.Context) []byte {
+func InjectBinary(ctx context.Context, carrier io.Writer) error {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		carrier := bytes.NewBuffer([]byte{})
-
 		err := span.Tracer().Inject(span.Context(), opentracing.Binary, carrier)
-		if err == nil {
-			return carrier.Bytes()
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func InjectHeaders(ctx context.Context) http.Header {
+func InjectHeaders(ctx context.Context, carrier http.Header) error {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		carrier := opentracing.HTTPHeadersCarrier{}
-
-		err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
-		if err == nil {
-			return http.Header(carrier)
+		err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(carrier))
+		if err != nil {
+			return err
 		}
 	}
 
