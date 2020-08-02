@@ -7,6 +7,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestTrace_ContextWithAction(t *testing.T) {
@@ -73,4 +74,41 @@ func TestTraceLogger_withErrorTag(t *testing.T) {
 			assert.Equal(t, tt.withTag, result)
 		})
 	}
+}
+
+var js = []byte(
+	`
+	{
+		"key": "value",
+		"v2": {
+			"k2": 123,
+			"bb": ["cc", "dd"]
+		}
+	}
+	`,
+)
+
+func TestTraceLogger(t *testing.T) {
+	l, err := zap.NewDevelopment()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s := struct {
+		Key string
+	}{
+		Key: "AAAAA!!!!",
+	}
+
+	logger := NewTraceLogger("key", l.Sugar())
+
+	logger.With("kkkk", "vvvv").Error(context.Background(), "123")
+
+	ctx := ContextWithAction(context.Background(), "some action")
+
+	logger.WithJSON("json", js).Error(ctx, "123333")
+
+	logger.With("kkkk2", "vvvv2", "json-v2", s).Error(ctx, "123")
+
+	logger.Error(ctx, "non kkkk")
 }

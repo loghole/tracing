@@ -18,42 +18,48 @@ type Config struct {
 }
 
 type Tracer struct {
-	tracer opentracing.Tracer
+	opentracing.Tracer
 	closer io.Closer
 }
 
-func NewTracer(cfg *Config) (*Tracer, error) {
-	configuration := config.Configuration{
-		ServiceName: cfg.ServiceName,
-		Disabled:    !cfg.Enabled,
+func DefaultConfiguration(service, url string) *config.Configuration {
+	return &config.Configuration{
+		ServiceName: service,
+		Disabled:    url != "",
 		Sampler: &config.SamplerConfig{
 			Type:  "const",
 			Param: 1,
 		},
 		Reporter: &config.ReporterConfig{
 			BufferFlushInterval: time.Second,
-			LocalAgentHostPort:  cfg.URI,
+			LocalAgentHostPort:  url,
 		},
 	}
+}
 
+func NewTracer(configuration *config.Configuration) (*Tracer, error) {
 	tracer, closer, err := configuration.NewTracer(config.PoolSpans(true))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Tracer{tracer: tracer, closer: closer}, nil
+	return &Tracer{Tracer: tracer, closer: closer}, nil
 }
 
 func (c *Tracer) OpenTracer() opentracing.Tracer {
-	return c.tracer
+	return c.Tracer
 }
 
 func (c *Tracer) Close() error {
+	if c.closer == nil {
+		return nil
+	}
+
 	return c.closer.Close()
 }
 
 func (c *Tracer) NewSpan() SpanBuilder {
-	return SpanBuilder{tracer: c.tracer}
+	return SpanBuilder{tracer: c.Tracer}
 }
 
 type SpanBuilder struct {

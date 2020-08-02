@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 )
@@ -10,8 +11,7 @@ import (
 type key string
 
 const (
-	_ctxActionKey key    = "action"
-	ActionKey     string = "action"
+	_ctxActionKey key = "action"
 )
 
 func ContextWithAction(ctx context.Context, actionID string) context.Context {
@@ -27,11 +27,15 @@ func ActionFromContext(ctx context.Context) string {
 }
 
 type TraceLogger struct {
-	logger *zap.SugaredLogger
+	actionKey string
+	*zap.SugaredLogger
 }
 
-func NewTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
-	return &TraceLogger{logger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()}
+func NewTraceLogger(actionKey string, logger *zap.SugaredLogger) *TraceLogger {
+	return &TraceLogger{
+		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		actionKey:     actionKey,
+	}
 }
 
 func (l *TraceLogger) Debug(ctx context.Context, args ...interface{}) {
@@ -68,12 +72,27 @@ func (l *TraceLogger) Errorf(ctx context.Context, template string, args ...inter
 	l.withAction(ctx).Errorf(template, args...)
 }
 
-func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return l.logger.With(ActionKey, val)
+func (l TraceLogger) With(args ...interface{}) *TraceLogger {
+	l.SugaredLogger = l.SugaredLogger.With(args...)
+
+	return &l
+}
+
+func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
+	var obj interface{}
+	if err := jsoniter.Unmarshal(b, &obj); err != nil {
+		return l.With(key, "unmarshal failed")
 	}
 
-	return l.logger
+	return l.With(key, obj)
+}
+
+func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
+	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
+		return l.SugaredLogger.With(l.actionKey, val)
+	}
+
+	return l.SugaredLogger
 }
 
 func withErrorTag(ctx context.Context) {
