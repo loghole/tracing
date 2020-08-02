@@ -25,7 +25,7 @@ type Tracer struct {
 func DefaultConfiguration(service, url string) *config.Configuration {
 	return &config.Configuration{
 		ServiceName: service,
-		Disabled:    url != "",
+		Disabled:    url == "",
 		Sampler: &config.SamplerConfig{
 			Type:  "const",
 			Param: 1,
