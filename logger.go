@@ -11,6 +11,7 @@ import (
 type key string
 
 const (
+	ActionKey         = "trace_id"
 	_ctxActionKey key = "action"
 )
 
