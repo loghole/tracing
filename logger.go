@@ -82,7 +82,10 @@ func (l TraceLogger) With(args ...interface{}) *TraceLogger {
 func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 	var obj interface{}
 	if err := jsoniter.Unmarshal(b, &obj); err != nil {
-		return l.With(key, "unmarshal failed")
+		return l.With(
+			key, "unmarshal failed",
+			"failed_json", string(b),
+		)
 	}
 
 	return l.With(key, obj)
