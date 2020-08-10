@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -59,15 +60,13 @@ func (s *Span) WithTag(key string, val interface{}) *Span {
 }
 
 func (s *Span) Finish() {
-	if atomic.LoadUint32(&s.done) > 0 {
-		log.New(os.Stdout, "tracing: ", log.Ldate|log.Llongfile).Println("[warn] finish finished span")
+	if !atomic.CompareAndSwapUint32(&s.done, 0, 1) {
+		log.New(os.Stdout, "tracing: ", log.Ldate).Printf("[warn] %s finish finished span", callerLine())
 	}
 
 	if s.span != nil {
 		s.once.Do(s.span.Finish)
 	}
-
-	atomic.AddUint32(&s.done, 1)
 }
 
 func (s *Span) Context(ctx context.Context) context.Context {
@@ -128,4 +127,19 @@ func callerName() string {
 	list := strings.Split(f.Name(), "/")
 
 	return list[len(list)-1]
+}
+
+func callerLine() string {
+	var pc [1]uintptr
+
+	runtime.Callers(_skipCallers, pc[:])
+
+	f := runtime.FuncForPC(pc[0])
+	if f == nil {
+		return "unknown"
+	}
+
+	file, line := f.FileLine(pc[0])
+
+	return fmt.Sprintf("%s:%d", file, line)
 }
