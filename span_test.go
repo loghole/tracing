@@ -185,6 +185,20 @@ func TestSpan_Finish(t *testing.T) {
 	}
 }
 
+func TestSpan_FinishOnce(t *testing.T) {
+	tracer, err := NewTracer(DefaultConfiguration("service", "127.0.0.1:6831"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	defer tracer.Close()
+
+	span := tracer.NewSpan().WithName("1").Build()
+
+	span.Finish()
+	span.Finish()
+}
+
 func TestInjectMap(t *testing.T) {
 	tests := []struct {
 		name     string

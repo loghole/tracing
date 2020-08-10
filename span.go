@@ -3,10 +3,13 @@ package tracing
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
 )
@@ -18,10 +21,11 @@ const (
 type Span struct {
 	span opentracing.Span
 	once sync.Once
+	done uint32
 }
 
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
-	s = &Span{once: sync.Once{}}
+	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
 		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
@@ -34,7 +38,7 @@ func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 }
 
 func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
-	s = &Span{once: sync.Once{}}
+	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
 		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
@@ -55,9 +59,15 @@ func (s *Span) WithTag(key string, val interface{}) *Span {
 }
 
 func (s *Span) Finish() {
+	if atomic.LoadUint32(&s.done) > 0 {
+		log.New(os.Stdout, "tracing: ", log.Ldate|log.Llongfile).Println("[warn] finish finished span")
+	}
+
 	if s.span != nil {
 		s.once.Do(s.span.Finish)
 	}
+
+	atomic.AddUint32(&s.done, 1)
 }
 
 func (s *Span) Context(ctx context.Context) context.Context {
