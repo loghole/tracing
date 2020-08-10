@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/opentracing/opentracing-go"
 )
@@ -16,31 +17,36 @@ const (
 
 type Span struct {
 	span opentracing.Span
+	once sync.Once
 }
 
-func ChildSpan(ctx *context.Context) (tracer Span) { // nolint:gocritic
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		tracer.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
+func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
+	s = &Span{once: sync.Once{}}
 
-		// Переопределяем исходный контекст
-		*ctx = opentracing.ContextWithSpan(*ctx, tracer.span)
+	if span := opentracing.SpanFromContext(*ctx); span != nil {
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
+
+		// Overriding the original context
+		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
 	}
 
-	return tracer
+	return s
 }
 
-func FollowsSpan(ctx *context.Context) (tracer Span) { // nolint:gocritic
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		tracer.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
+func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
+	s = &Span{once: sync.Once{}}
 
-		// Переопределяем исходный контекст
-		*ctx = opentracing.ContextWithSpan(*ctx, tracer.span)
+	if span := opentracing.SpanFromContext(*ctx); span != nil {
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
+
+		// Overriding the original context
+		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
 	}
 
-	return tracer
+	return s
 }
 
-func (s Span) WithTag(key string, val interface{}) Span {
+func (s *Span) WithTag(key string, val interface{}) *Span {
 	if s.span != nil {
 		s.span.SetTag(key, val)
 	}
@@ -48,17 +54,17 @@ func (s Span) WithTag(key string, val interface{}) Span {
 	return s
 }
 
-func (s Span) Finish() {
+func (s *Span) Finish() {
 	if s.span != nil {
-		s.span.Finish()
+		s.once.Do(s.span.Finish)
 	}
 }
 
-func (s Span) Context(ctx context.Context) context.Context {
+func (s *Span) Context(ctx context.Context) context.Context {
 	return opentracing.ContextWithSpan(ctx, s.span)
 }
 
-func (s Span) GetSpanContext() opentracing.SpanContext {
+func (s *Span) GetSpanContext() opentracing.SpanContext {
 	if s.span != nil {
 		return s.span.Context()
 	}
