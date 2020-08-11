@@ -2,10 +2,13 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
 )
@@ -16,31 +19,37 @@ const (
 
 type Span struct {
 	span opentracing.Span
+	once sync.Once
+	done uint32
 }
 
-func ChildSpan(ctx *context.Context) (tracer Span) { // nolint:gocritic
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		tracer.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
+func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
+	s = &Span{}
 
-		// Переопределяем исходный контекст
-		*ctx = opentracing.ContextWithSpan(*ctx, tracer.span)
+	if span := opentracing.SpanFromContext(*ctx); span != nil {
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
+
+		// Overriding the original context
+		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
 	}
 
-	return tracer
+	return s
 }
 
-func FollowsSpan(ctx *context.Context) (tracer Span) { // nolint:gocritic
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		tracer.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
+func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
+	s = &Span{}
 
-		// Переопределяем исходный контекст
-		*ctx = opentracing.ContextWithSpan(*ctx, tracer.span)
+	if span := opentracing.SpanFromContext(*ctx); span != nil {
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
+
+		// Overriding the original context
+		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
 	}
 
-	return tracer
+	return s
 }
 
-func (s Span) WithTag(key string, val interface{}) Span {
+func (s *Span) WithTag(key string, val interface{}) *Span {
 	if s.span != nil {
 		s.span.SetTag(key, val)
 	}
@@ -48,17 +57,21 @@ func (s Span) WithTag(key string, val interface{}) Span {
 	return s
 }
 
-func (s Span) Finish() {
+func (s *Span) Finish() {
+	if !atomic.CompareAndSwapUint32(&s.done, 0, 1) {
+		warnf("%s finish finished span", callerLine())
+	}
+
 	if s.span != nil {
-		s.span.Finish()
+		s.once.Do(s.span.Finish)
 	}
 }
 
-func (s Span) Context(ctx context.Context) context.Context {
+func (s *Span) Context(ctx context.Context) context.Context {
 	return opentracing.ContextWithSpan(ctx, s.span)
 }
 
-func (s Span) GetSpanContext() opentracing.SpanContext {
+func (s *Span) GetSpanContext() opentracing.SpanContext {
 	if s.span != nil {
 		return s.span.Context()
 	}
@@ -112,4 +125,19 @@ func callerName() string {
 	list := strings.Split(f.Name(), "/")
 
 	return list[len(list)-1]
+}
+
+func callerLine() string {
+	var pc [1]uintptr
+
+	runtime.Callers(_skipCallers, pc[:])
+
+	f := runtime.FuncForPC(pc[0])
+	if f == nil {
+		return "unknown"
+	}
+
+	file, line := f.FileLine(pc[0])
+
+	return fmt.Sprintf("%s:%d", file, line)
 }
