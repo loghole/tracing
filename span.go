@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -61,12 +59,7 @@ func (s *Span) WithTag(key string, val interface{}) *Span {
 
 func (s *Span) Finish() {
 	if !atomic.CompareAndSwapUint32(&s.done, 0, 1) {
-		switch warnLogger != nil {
-		case true:
-			warnLogger.Warnf("%s finish finished span", callerLine())
-		default:
-			log.New(os.Stdout, "tracing: ", log.Ldate).Printf("[warn] %s finish finished span", callerLine())
-		}
+		warnf("%s finish finished span", callerLine())
 	}
 
 	if s.span != nil {
