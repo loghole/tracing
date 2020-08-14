@@ -75,7 +75,11 @@ func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 }
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	return l.SugaredLogger.With(l.actionKey, getAction(ctx))
+	if action := getAction(ctx); action != "" {
+		return l.SugaredLogger.With(l.actionKey, action)
+	}
+
+	return l.SugaredLogger
 }
 
 func withErrorTag(ctx context.Context) {
