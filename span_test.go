@@ -208,7 +208,7 @@ func TestInjectMap(t *testing.T) {
 		{
 			name:     "InjectMap",
 			span:     mocktracer.New().StartSpan("test"),
-			expected: map[string]string{"mockpfx-ids-sampled": "true", "mockpfx-ids-spanid": "70", "mockpfx-ids-traceid": "69"},
+			expected: map[string]string{"mockpfx-ids-sampled": "true", "mockpfx-ids-spanid": "72", "mockpfx-ids-traceid": "71"},
 		},
 	}
 	for _, tt := range tests {
