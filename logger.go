@@ -96,7 +96,9 @@ func getAction(ctx context.Context) string {
 
 	err := InjectMap(ctx, m)
 	if err == nil {
-		warnf("trace map: %+v", m)
+		for k, v := range m {
+			warnf("trace map: %v - %v", k, v)
+		}
 
 		return m["mockpfx-ids-traceid"]
 	}
