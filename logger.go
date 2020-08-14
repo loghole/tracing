@@ -76,8 +76,11 @@ func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
 	if action := getAction(ctx); action != "" {
+		warnf("action = %s", action)
 		return l.SugaredLogger.With(l.actionKey, action)
 	}
+
+	warnf("no action key")
 
 	return l.SugaredLogger
 }
@@ -91,9 +94,14 @@ func withErrorTag(ctx context.Context) {
 func getAction(ctx context.Context) string {
 	m := map[string]string{}
 
-	if err := InjectMap(ctx, m); err == nil {
+	err := InjectMap(ctx, m)
+	if err == nil {
+		warnf("trace map: %+v", m)
+
 		return m["mockpfx-ids-traceid"]
 	}
+
+	warnf("inject failed: %v", err)
 
 	return ""
 }
