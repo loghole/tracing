@@ -237,7 +237,7 @@ func TestInjectHeaders(t *testing.T) {
 		{
 			name:     "InjectHeaders",
 			span:     mocktracer.New().StartSpan("test"),
-			expected: http.Header{"Mockpfx-Ids-Sampled": []string{"true"}, "Mockpfx-Ids-Spanid": []string{"72"}, "Mockpfx-Ids-Traceid": []string{"71"}},
+			expected: http.Header{"Mockpfx-Ids-Sampled": []string{"true"}, "Mockpfx-Ids-Spanid": []string{"74"}, "Mockpfx-Ids-Traceid": []string{"73"}},
 		},
 	}
 	for _, tt := range tests {

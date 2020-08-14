@@ -8,24 +8,9 @@ import (
 	"go.uber.org/zap"
 )
 
-type key string
-
 const (
-	ActionKey         = "trace_id"
-	_ctxActionKey key = "action"
+	ActionKey = "trace_id"
 )
-
-func ContextWithAction(ctx context.Context, actionID string) context.Context {
-	return context.WithValue(ctx, _ctxActionKey, actionID)
-}
-
-func ActionFromContext(ctx context.Context) string {
-	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return val
-	}
-
-	return ""
-}
 
 type TraceLogger struct {
 	actionKey string
@@ -81,26 +66,30 @@ func (l TraceLogger) With(args ...interface{}) *TraceLogger {
 
 func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 	var obj interface{}
+
 	if err := jsoniter.Unmarshal(b, &obj); err != nil {
-		return l.With(
-			key, "unmarshal failed",
-			"failed_json", string(b),
-		)
+		return l.With(key, "unmarshal failed", "failed_json", string(b))
 	}
 
 	return l.With(key, obj)
 }
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return l.SugaredLogger.With(l.actionKey, val)
-	}
-
-	return l.SugaredLogger
+	return l.SugaredLogger.With(l.actionKey, getAction(ctx))
 }
 
 func withErrorTag(ctx context.Context) {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.SetTag("error", true)
 	}
+}
+
+func getAction(ctx context.Context) string {
+	m := map[string]string{}
+
+	if err := InjectMap(ctx, m); err == nil {
+		return m["mockpfx-ids-traceid"]
+	}
+
+	return ""
 }
