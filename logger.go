@@ -2,9 +2,11 @@ package tracing
 
 import (
 	"context"
+	"strings"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-client-go"
 	"go.uber.org/zap"
 )
 
@@ -18,10 +20,19 @@ type TraceLogger struct {
 	*zap.SugaredLogger
 }
 
-func NewTraceLogger(actionKey, traceID string, logger *zap.SugaredLogger) *TraceLogger {
+func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
-		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		actionKey:     actionKey,
+		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		actionKey:        ActionKey,
+		traceContextName: jaeger.TraceContextHeaderName,
+	}
+}
+
+func NewTraceLogger(actionKey, traceContextName string, logger *zap.SugaredLogger) *TraceLogger {
+	return &TraceLogger{
+		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		actionKey:        actionKey,
+		traceContextName: traceContextName,
 	}
 }
 
@@ -94,7 +105,7 @@ func (l *TraceLogger) getAction(ctx context.Context) string {
 
 	err := InjectMap(ctx, m)
 	if err == nil {
-		return m[l.traceContextName]
+		return strings.Split(m[l.traceContextName], ":")[0]
 	}
 
 	return ""
