@@ -13,23 +13,31 @@ import (
 func TestTrace_ContextWithAction(t *testing.T) {
 	tests := []struct {
 		name     string
-		ctx      context.Context
+		ctx      func() context.Context
 		expected string
 	}{
 		{
-			name:     "#1",
-			ctx:      ContextWithAction(context.Background(), "some action"),
-			expected: "some action",
+			name: "#1",
+			ctx: func() context.Context {
+				return opentracing.ContextWithSpan(context.TODO(), mocktracer.New().StartSpan("test"))
+			},
+			expected: "43",
 		},
 		{
-			name:     "#2",
-			ctx:      context.Background(),
+			name: "#2",
+			ctx: func() context.Context {
+				return context.Background()
+			},
 			expected: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, ActionFromContext(tt.ctx))
+			logger := &TraceLogger{
+				traceContextName: "mockpfx-ids-traceid",
+			}
+
+			assert.Equal(t, tt.expected, logger.getAction(tt.ctx()))
 		})
 	}
 }
@@ -100,11 +108,11 @@ func TestTraceLogger(t *testing.T) {
 		Key: "AAAAA!!!!",
 	}
 
-	logger := NewTraceLogger("key", l.Sugar())
+	logger := NewTraceLogger("key", "mockpfx-ids-traceid", l.Sugar())
 
 	logger.With("kkkk", "vvvv").Error(context.Background(), "123")
 
-	ctx := ContextWithAction(context.Background(), "some action")
+	ctx := context.Background()
 
 	logger.WithJSON("json", js).Error(ctx, "123333")
 

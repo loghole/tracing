@@ -2,40 +2,37 @@ package tracing
 
 import (
 	"context"
+	"strings"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-client-go"
 	"go.uber.org/zap"
 )
 
-type key string
-
 const (
-	ActionKey         = "trace_id"
-	_ctxActionKey key = "action"
+	ActionKey = "trace_id"
 )
 
-func ContextWithAction(ctx context.Context, actionID string) context.Context {
-	return context.WithValue(ctx, _ctxActionKey, actionID)
-}
-
-func ActionFromContext(ctx context.Context) string {
-	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return val
-	}
-
-	return ""
-}
-
 type TraceLogger struct {
-	actionKey string
+	actionKey        string
+	traceContextName string
 	*zap.SugaredLogger
 }
 
-func NewTraceLogger(actionKey string, logger *zap.SugaredLogger) *TraceLogger {
+func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
-		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		actionKey:     actionKey,
+		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		actionKey:        ActionKey,
+		traceContextName: jaeger.TraceContextHeaderName,
+	}
+}
+
+func NewTraceLogger(actionKey, traceContextName string, logger *zap.SugaredLogger) *TraceLogger {
+	return &TraceLogger{
+		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		actionKey:        actionKey,
+		traceContextName: traceContextName,
 	}
 }
 
@@ -81,19 +78,17 @@ func (l TraceLogger) With(args ...interface{}) *TraceLogger {
 
 func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 	var obj interface{}
+
 	if err := jsoniter.Unmarshal(b, &obj); err != nil {
-		return l.With(
-			key, "unmarshal failed",
-			"failed_json", string(b),
-		)
+		return l.With(key, "unmarshal failed", "failed_json", string(b))
 	}
 
 	return l.With(key, obj)
 }
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	if val, ok := ctx.Value(_ctxActionKey).(string); ok {
-		return l.SugaredLogger.With(l.actionKey, val)
+	if action := l.getAction(ctx); action != "" {
+		return l.SugaredLogger.With(l.actionKey, action)
 	}
 
 	return l.SugaredLogger
@@ -103,4 +98,15 @@ func withErrorTag(ctx context.Context) {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.SetTag("error", true)
 	}
+}
+
+func (l *TraceLogger) getAction(ctx context.Context) string {
+	m := map[string]string{}
+
+	err := InjectMap(ctx, m)
+	if err == nil {
+		return strings.Split(m[l.traceContextName], ":")[0]
+	}
+
+	return ""
 }
