@@ -33,7 +33,11 @@ func TestTrace_ContextWithAction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, getAction(tt.ctx()))
+			logger := &TraceLogger{
+				traceContextName: "mockpfx-ids-traceid",
+			}
+
+			assert.Equal(t, tt.expected, logger.getAction(tt.ctx()))
 		})
 	}
 }
@@ -104,7 +108,7 @@ func TestTraceLogger(t *testing.T) {
 		Key: "AAAAA!!!!",
 	}
 
-	logger := NewTraceLogger("key", l.Sugar())
+	logger := NewTraceLogger("key", "mockpfx-ids-traceid", l.Sugar())
 
 	logger.With("kkkk", "vvvv").Error(context.Background(), "123")
 

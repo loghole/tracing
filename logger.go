@@ -13,11 +13,12 @@ const (
 )
 
 type TraceLogger struct {
-	actionKey string
+	actionKey        string
+	traceContextName string
 	*zap.SugaredLogger
 }
 
-func NewTraceLogger(actionKey string, logger *zap.SugaredLogger) *TraceLogger {
+func NewTraceLogger(actionKey, traceID string, logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
 		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
 		actionKey:     actionKey,
@@ -75,12 +76,9 @@ func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 }
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	if action := getAction(ctx); action != "" {
-		warnf("action = %s", action)
+	if action := l.getAction(ctx); action != "" {
 		return l.SugaredLogger.With(l.actionKey, action)
 	}
-
-	warnf("no action key")
 
 	return l.SugaredLogger
 }
@@ -91,19 +89,13 @@ func withErrorTag(ctx context.Context) {
 	}
 }
 
-func getAction(ctx context.Context) string {
+func (l *TraceLogger) getAction(ctx context.Context) string {
 	m := map[string]string{}
 
 	err := InjectMap(ctx, m)
 	if err == nil {
-		for k, v := range m {
-			warnf("trace map: %v - %v", k, v)
-		}
-
-		return m["mockpfx-ids-traceid"]
+		return m[l.traceContextName]
 	}
-
-	warnf("inject failed: %v", err)
 
 	return ""
 }
