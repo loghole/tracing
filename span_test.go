@@ -197,6 +197,18 @@ func TestSpan_FinishOnce(t *testing.T) {
 
 	span.Finish()
 	span.Finish()
+
+	tracer, err = NewTracer(DefaultConfiguration("", ""))
+	if err != nil {
+		t.Error(err)
+	}
+
+	defer tracer.Close()
+
+	span = tracer.NewSpan().WithName("2").Build()
+
+	span.Finish()
+	span.Finish()
 }
 
 func TestInjectMap(t *testing.T) {
