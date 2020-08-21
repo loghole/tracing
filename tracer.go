@@ -2,20 +2,16 @@ package tracing
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
-)
 
-type Config struct {
-	// Адрес jaeger-agent. Example localhost:6831
-	URI         string
-	Enabled     bool
-	ServiceName string
-}
+	"github.com/gadavy/tracing/internal"
+)
 
 type Tracer struct {
 	opentracing.Tracer
@@ -41,6 +37,10 @@ func NewTracer(configuration *config.Configuration) (*Tracer, error) {
 	tracer, closer, err := configuration.NewTracer(config.PoolSpans(true))
 	if err != nil {
 		return nil, err
+	}
+
+	if _, ok := tracer.(*opentracing.NoopTracer); ok {
+		return &Tracer{Tracer: internal.NewLogTracer(), closer: closer}, nil
 	}
 
 	return &Tracer{Tracer: tracer, closer: closer}, nil
@@ -119,4 +119,9 @@ func (b SpanBuilder) Build() *Span {
 	}
 
 	return &Span{span: b.tracer.StartSpan(b.name, b.options...)}
+}
+
+func (b SpanBuilder) BuildWithContext(ctx context.Context) (*Span, context.Context) {
+	span := b.Build()
+	return span, span.Context(ctx)
 }
