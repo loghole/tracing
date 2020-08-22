@@ -123,5 +123,7 @@ func (b SpanBuilder) Build() *Span {
 
 func (b SpanBuilder) BuildWithContext(ctx context.Context) (*Span, context.Context) {
 	span := b.Build()
-	return span, span.Context(ctx)
+	ctx = span.Context(ctx)
+
+	return span, ctx
 }
