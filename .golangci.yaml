@@ -8,6 +8,7 @@ linters:
    - goerr113
    - godot
    - nolintlint
+   - gci
 linters-settings:
   gocritic:
     enabled-tags:

@@ -15,7 +15,7 @@ type LogTracer struct {
 }
 
 func NewLogTracer() *LogTracer {
-	return &LogTracer{rnd: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	return &LogTracer{rnd: rand.New(rand.NewSource(time.Now().UnixNano()))} // nolint:gosec // need math rnd
 }
 
 // StartSpan belongs to the Tracer interface.
