@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/opentracing/opentracing-go"
 )
@@ -27,7 +28,11 @@ func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
+		s.span = span.Tracer().StartSpan(
+			callerName(),
+			opentracing.ChildOf(span.Context()),
+			opentracing.StartTime(time.Now()),
+		)
 
 		// Overriding the original context
 		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
@@ -40,7 +45,11 @@ func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
+		s.span = span.Tracer().StartSpan(
+			callerName(),
+			opentracing.FollowsFrom(span.Context()),
+			opentracing.StartTime(time.Now()),
+		)
 
 		// Overriding the original context
 		*ctx = opentracing.ContextWithSpan(*ctx, s.span)

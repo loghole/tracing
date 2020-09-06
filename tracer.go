@@ -33,8 +33,8 @@ func DefaultConfiguration(service, url string) *config.Configuration {
 	}
 }
 
-func NewTracer(configuration *config.Configuration) (*Tracer, error) {
-	tracer, closer, err := configuration.NewTracer(config.PoolSpans(true))
+func NewTracer(configuration *config.Configuration, options ...config.Option) (*Tracer, error) {
+	tracer, closer, err := configuration.NewTracer(options...)
 	if err != nil {
 		return nil, err
 	}
