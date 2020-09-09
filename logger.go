@@ -28,10 +28,10 @@ func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	}
 }
 
-func NewTraceLogger(actionKey, traceContextName string, logger *zap.SugaredLogger) *TraceLogger {
+func NewTraceLogger(traceKey, traceContextName string, logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
 		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		traceKey:         actionKey,
+		traceKey:         traceKey,
 		traceContextName: traceContextName,
 	}
 }
