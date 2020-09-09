@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -18,19 +19,22 @@ type Tracer struct {
 	closer io.Closer
 }
 
-func DefaultConfiguration(service, url string) *config.Configuration {
-	return &config.Configuration{
+func DefaultConfiguration(service, addr string) *config.Configuration {
+	configuration := &config.Configuration{
 		ServiceName: service,
-		Disabled:    url == "",
-		Sampler: &config.SamplerConfig{
-			Type:  "const",
-			Param: 1,
-		},
-		Reporter: &config.ReporterConfig{
-			BufferFlushInterval: time.Second,
-			LocalAgentHostPort:  url,
-		},
+		Disabled:    addr == "",
+		Sampler:     &config.SamplerConfig{Type: "const", Param: 1},
+		Reporter:    &config.ReporterConfig{BufferFlushInterval: time.Second},
 	}
+
+	switch {
+	case strings.HasPrefix(addr, "http"):
+		configuration.Reporter.CollectorEndpoint = addr
+	default:
+		configuration.Reporter.LocalAgentHostPort = addr
+	}
+
+	return configuration
 }
 
 func NewTracer(configuration *config.Configuration, options ...config.Option) (*Tracer, error) {
