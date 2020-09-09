@@ -37,7 +37,7 @@ func TestTrace_ContextWithAction(t *testing.T) {
 				traceContextName: "mockpfx-ids-traceid",
 			}
 
-			assert.Equal(t, tt.expected, logger.getAction(tt.ctx()))
+			assert.Equal(t, tt.expected, logger.GetTraceID(tt.ctx()))
 		})
 	}
 }

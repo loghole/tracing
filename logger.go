@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	ActionKey = "trace_id"
+	traceKey = "trace_id"
 )
 
 type TraceLogger struct {
-	actionKey        string
+	traceKey         string
 	traceContextName string
 	*zap.SugaredLogger
 }
@@ -23,7 +23,7 @@ type TraceLogger struct {
 func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
 		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		actionKey:        ActionKey,
+		traceKey:         traceKey,
 		traceContextName: jaeger.TraceContextHeaderName,
 	}
 }
@@ -31,7 +31,7 @@ func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 func NewTraceLogger(actionKey, traceContextName string, logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
 		SugaredLogger:    logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		actionKey:        actionKey,
+		traceKey:         actionKey,
 		traceContextName: traceContextName,
 	}
 }
@@ -87,8 +87,8 @@ func (l *TraceLogger) WithJSON(key string, b []byte) *TraceLogger {
 }
 
 func (l *TraceLogger) withAction(ctx context.Context) *zap.SugaredLogger {
-	if action := l.getAction(ctx); action != "" {
-		return l.SugaredLogger.With(l.actionKey, action)
+	if action := l.GetTraceID(ctx); action != "" {
+		return l.SugaredLogger.With(l.traceKey, action)
 	}
 
 	return l.SugaredLogger
@@ -100,11 +100,10 @@ func withErrorTag(ctx context.Context) {
 	}
 }
 
-func (l *TraceLogger) getAction(ctx context.Context) string {
+func (l *TraceLogger) GetTraceID(ctx context.Context) string {
 	m := map[string]string{}
 
-	err := InjectMap(ctx, m)
-	if err == nil {
+	if err := InjectMap(ctx, m); err == nil {
 		return strings.Split(m[l.traceContextName], ":")[0]
 	}
 
