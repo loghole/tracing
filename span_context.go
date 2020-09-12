@@ -6,17 +6,10 @@ import (
 	"net/http"
 
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 )
 
 func SpanFromContext(ctx context.Context) opentracing.Span {
 	return opentracing.SpanFromContext(ctx)
-}
-
-func LogFields(ctx context.Context, fields ...log.Field) {
-	if span := SpanFromContext(ctx); span != nil {
-		span.LogFields(fields...)
-	}
 }
 
 func LogKV(ctx context.Context, key string, value interface{}) {
