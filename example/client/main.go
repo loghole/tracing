@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gadavy/tracing"
 	"github.com/gadavy/tracing/logger"
@@ -17,7 +20,7 @@ import (
 )
 
 const (
-	jaegerURL  = "127.0.0.1:6841"
+	jaegerURL  = "127.0.0.1:6831"
 	serverAddr = "127.0.0.1:38572"
 )
 
@@ -30,33 +33,31 @@ func main() {
 	log := logger.NewTraceLogger(dev.Sugar())
 
 	client := NewClientExample(log)
-	client.Test()
-	defer client.Stop()
 
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
 
-	// errGroup, ctx := errgroup.WithContext(context.Background())
-	//
-	// errGroup.Go(func() error {
-	// 	log.Info(ctx, "start server")
-	//
-	// 	return client.Run()
-	// })
-	//
-	// // Exit from app.
-	// select {
-	// case <-exit:
-	// 	log.Info(ctx, "stopping application")
-	// case <-ctx.Done():
-	// 	log.Error(ctx, "stopping application with error")
-	// }
-	//
-	// client.Stop()
-	//
-	// if err := errGroup.Wait(); err != nil {
-	// 	log.Error(ctx, err)
-	// }
+	errGroup, ctx := errgroup.WithContext(context.Background())
+
+	errGroup.Go(func() error {
+		log.Info(ctx, "start server")
+
+		return client.Run()
+	})
+
+	// Exit from app.
+	select {
+	case <-exit:
+		log.Info(ctx, "stopping application")
+	case <-ctx.Done():
+		log.Error(ctx, "stopping application with error")
+	}
+
+	client.Stop()
+
+	if err := errGroup.Wait(); err != nil {
+		log.Error(ctx, err)
+	}
 }
 
 type ClientExample struct {
@@ -83,12 +84,11 @@ func NewClientExample(logger logger.Logger) *ClientExample {
 	}
 }
 
-/*
 func (e *ClientExample) Run() error {
 	var (
-		ticSuccess = time.NewTicker(time.Millisecond * 350)
-		ticError   = time.NewTicker(time.Millisecond * 750)
-		ticGoogle  = time.NewTicker(time.Millisecond * 2500)
+		ticSuccess = time.NewTicker(time.Millisecond * 3500)
+		ticError   = time.NewTicker(time.Millisecond * 7500)
+		ticGoogle  = time.NewTicker(time.Millisecond * 5500)
 	)
 
 	for {
@@ -100,13 +100,11 @@ func (e *ClientExample) Run() error {
 		case <-ticError.C:
 			e.SendRequest(fmt.Sprintf("http://%s%s", serverAddr, "/error"))
 		case <-ticGoogle.C:
-			e.SendRequest("https://www.google.com/robots.txt")
+			e.SendRequest("https://google.com/robots.txt")
 		}
-
-		return nil
 	}
 }
-*/
+
 func (e *ClientExample) Stop() {
 	if err := e.tracer.Close(); err != nil {
 		e.logger.Error(context.TODO(), "close tracer: ", err)
@@ -115,33 +113,7 @@ func (e *ClientExample) Stop() {
 	close(e.close)
 }
 
-func (e *ClientExample) Test() error {
-	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
-	defer span.Finish()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://google.com", nil)
-	if err != nil {
-		return err
-	}
-
-	res, err := e.client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	span.SetBaggageItem("test1", "tost")
-
-	span.LogKV("kv_log", 12)
-	time.Sleep(time.Second)
-	span.LogKV("kv_log", 13)
-	time.Sleep(time.Second)
-	span.LogKV("kv_log", 13)
-	res.Body.Close()
-
-	return nil
-}
-
-/*func (e *ClientExample) SendRequest(url string) {
+func (e *ClientExample) SendRequest(url string) {
 	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
 	defer span.Finish()
 
@@ -152,16 +124,14 @@ func (e *ClientExample) Test() error {
 		return
 	}
 
-	resp, err := tracehttp.NewClient(e.tracer, http.DefaultClient).Do(req)
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-
+	resp, err := e.client.Do(req)
 	if err != nil {
 		e.logger.Errorf(ctx, "Do request: %v", err)
 
 		return
 	}
+
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -172,4 +142,4 @@ func (e *ClientExample) Test() error {
 
 	e.logger.With("text", string(data)).Infof(ctx, "success")
 }
-*/
+

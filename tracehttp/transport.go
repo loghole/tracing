@@ -10,12 +10,6 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
-type key string
-
-const (
-	NextRoundTrip key = "next"
-)
-
 type Transport struct {
 	tracer   opentracing.Tracer
 	base     http.RoundTripper
@@ -45,11 +39,9 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 		return t.extended.RoundTrip(req)
 	}
 
-	ctx := req.Context()
-
 	var parentCtx opentracing.SpanContext
 
-	if parent := opentracing.SpanFromContext(ctx); parent != nil {
+	if parent := opentracing.SpanFromContext(req.Context()); parent != nil {
 		parentCtx = parent.Context()
 	}
 
@@ -66,7 +58,7 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 		log.Printf("[error] inject headers failed: %v", err)
 	}
 
-	resp, err = t.base.RoundTrip(req.WithContext(opentracing.ContextWithSpan(ctx, span)))
+	resp, err = t.base.RoundTrip(req.WithContext(opentracing.ContextWithSpan(req.Context(), span)))
 	if err != nil {
 		ext.Error.Set(span, true)
 
@@ -79,5 +71,5 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 }
 
 func buildSpanName(r *http.Request) string {
-	return strings.Join([]string{"HTTP", r.Method, r.URL.String()}, " ")
+	return strings.Join([]string{"HTTP", r.Method}, " ")
 }
