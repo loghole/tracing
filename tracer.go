@@ -117,16 +117,16 @@ func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 	return b
 }
 
-func (b SpanBuilder) Build() *Span {
+func (b SpanBuilder) Build() opentracing.Span {
 	if b.name == "" {
 		b.name = callerName()
 	}
 
-	return &Span{span: b.tracer.StartSpan(b.name, b.options...)}
+	return &Span{span: b.tracer.StartSpan(b.name, b.options...), tracer: b.tracer}
 }
 
-func (b SpanBuilder) BuildWithContext(ctx context.Context) (*Span, context.Context) {
+func (b SpanBuilder) BuildWithContext(ctx context.Context) (opentracing.Span, context.Context) {
 	span := b.Build()
 
-	return span.SetOperationName(callerName()), span.Context(ctx)
+	return span.SetOperationName(callerName()), opentracing.ContextWithSpan(ctx, span)
 }
