@@ -128,25 +128,39 @@ func TestSpan_SetTag(t *testing.T) {
 				Val: 1234567890,
 			},
 		},
+		{
+			name:   "#3",
+			span:   nil,
+			tagKey: "key",
+			tagVal: struct {
+				Key string
+				Val int
+			}{
+				Key: "1234567890",
+				Val: 1234567890,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := opentracing.ContextWithSpan(context.TODO(), tt.span)
 			span := ChildSpan(&ctx).SetTag(tt.tagKey, tt.tagVal)
 
-			parent, ok := tt.span.(*mocktracer.MockSpan)
-			if !ok {
-				t.Fatal("expected mocktracer.MockSpan")
-			}
+			if tt.span != nil {
+				parent, ok := tt.span.(*mocktracer.MockSpan)
+				if !ok {
+					t.Fatal("expected mocktracer.MockSpan")
+				}
 
-			child, ok := span.(*mocktracer.MockSpan)
-			if !ok {
-				t.Fatal("expected mocktracer.MockSpan")
-			}
+				child, ok := span.(*mocktracer.MockSpan)
+				if !ok {
+					t.Fatal("expected mocktracer.MockSpan")
+				}
 
-			assert.Equal(t, parent.SpanContext.TraceID, child.SpanContext.TraceID)
-			assert.Equal(t, parent.SpanContext.SpanID, child.ParentID)
-			assert.Equal(t, child.Tag(tt.tagKey), tt.tagVal)
+				assert.Equal(t, parent.SpanContext.TraceID, child.SpanContext.TraceID)
+				assert.Equal(t, parent.SpanContext.SpanID, child.ParentID)
+				assert.Equal(t, child.Tag(tt.tagKey), tt.tagVal)
+			}
 		})
 	}
 }

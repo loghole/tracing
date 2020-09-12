@@ -62,7 +62,9 @@ func (s *Span) Finish() {
 		warnf("%s finish finished span", callerLine())
 	}
 
-	s.span.Finish()
+	if s.span != nil {
+		s.span.Finish()
+	}
 }
 
 func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
@@ -70,54 +72,90 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 		warnf("%s finish finished span", callerLine())
 	}
 
-	s.span.FinishWithOptions(opts)
+	if s.span != nil {
+		s.span.FinishWithOptions(opts)
+	}
 }
 
 func (s *Span) Context() opentracing.SpanContext {
-	return s.span.Context()
+	if s.span != nil {
+		return s.span.Context()
+	}
+
+	return nil
 }
 
 func (s *Span) SetOperationName(operationName string) opentracing.Span {
-	return s.span.SetOperationName(operationName)
+	if s.span != nil {
+		return s.span.SetOperationName(operationName)
+	}
+
+	return s
 }
 
 func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
-	return s.span.SetTag(key, value)
+	if s.span != nil {
+		return s.span.SetTag(key, value)
+	}
+
+	return s
 }
 
 func (s *Span) LogFields(fields ...log.Field) {
-	s.span.LogFields(fields...)
+	if s.span != nil {
+		s.span.LogFields(fields...)
+	}
 }
 
 func (s *Span) LogKV(alternatingKeyValues ...interface{}) {
-	s.span.LogKV(alternatingKeyValues...)
+	if s.span != nil {
+		s.span.LogKV(alternatingKeyValues...)
+	}
 }
 
 func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
-	return s.span.SetBaggageItem(restrictedKey, value)
+	if s.span != nil {
+		return s.span.SetBaggageItem(restrictedKey, value)
+	}
+
+	return s
 }
 
 func (s *Span) BaggageItem(restrictedKey string) string {
-	return s.span.BaggageItem(restrictedKey)
+	if s.span != nil {
+		return s.span.BaggageItem(restrictedKey)
+	}
+
+	return ""
 }
 
 func (s *Span) Tracer() opentracing.Tracer {
-	return s.tracer
+	if s.tracer != nil {
+		return s.tracer
+	}
+
+	return nil
 }
 
 // Deprecated: use LogFields or LogKV
 func (s *Span) LogEvent(event string) {
-	s.span.LogFields(log.String(event, ""))
+	if s.span != nil {
+		s.span.LogFields(log.String(event, ""))
+	}
 }
 
 // Deprecated: use LogFields or LogKV
 func (s *Span) LogEventWithPayload(event string, payload interface{}) {
-	s.span.LogKV(event, payload)
+	if s.span != nil {
+		s.span.LogKV(event, payload)
+	}
 }
 
 // Deprecated: use LogFields or LogKV
 func (s *Span) Log(data opentracing.LogData) {
-	s.span.LogKV(data.Event, data.Payload)
+	if s.span != nil {
+		s.span.LogKV(data.Event, data.Payload)
+	}
 }
 
 func callerName() string {
