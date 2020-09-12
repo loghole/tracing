@@ -1,4 +1,4 @@
-package http
+package tracehttp
 
 import (
 	"net/http"
@@ -40,14 +40,9 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx, err := m.tracer.Extract(opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(r.Header))
-		if err != nil {
-			next.ServeHTTP(w, r)
+		spanCtx, _ := m.tracer.Extract(opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(r.Header))
 
-			return
-		}
-
-		span := m.tracer.StartSpan(m.options.NameFunc(r), ext.RPCServerOption(ctx))
+		span := m.tracer.StartSpan(m.options.NameFunc(r), ext.RPCServerOption(spanCtx))
 		defer span.Finish()
 
 		ext.HTTPMethod.Set(span, r.Method)

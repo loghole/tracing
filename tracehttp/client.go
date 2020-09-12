@@ -1,4 +1,4 @@
-package http
+package tracehttp
 
 import (
 	"net/http"

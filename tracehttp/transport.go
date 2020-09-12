@@ -1,4 +1,4 @@
-package http
+package tracehttp
 
 import (
 	"log"
@@ -52,11 +52,13 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 		return resp, err
 	}
 
-	ext.HTTPStatusCode.Set(span, uint16(resp.StatusCode))
+	if span != nil {
+		ext.HTTPStatusCode.Set(span, uint16(resp.StatusCode))
+	}
 
 	return resp, nil
 }
 
 func buildSpanName(r *http.Request) string {
-	return strings.Join([]string{"HTTP ", r.Method, ":", r.URL.RequestURI()}, "")
+	return strings.Join([]string{"HTTP", r.Method, r.URL.String()}, " ")
 }
