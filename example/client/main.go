@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -11,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"go.uber.org/zap"
 
 	"github.com/gadavy/tracing"
@@ -20,7 +17,7 @@ import (
 )
 
 const (
-	jaegerURL  = "127.0.0.1:6831"
+	jaegerURL  = "127.0.0.1:6841"
 	serverAddr = "127.0.0.1:38572"
 )
 
@@ -63,7 +60,7 @@ func main() {
 }
 
 type ClientExample struct {
-	client *http.Client
+	client *tracehttp.Client
 	tracer *tracing.Tracer
 	logger logger.Logger
 
@@ -78,7 +75,7 @@ func NewClientExample(logger logger.Logger) *ClientExample {
 	}
 
 	return &ClientExample{
-		client: tracehttp.NewClient(tracer, http.DefaultClient),
+		client: tracehttp.NewClient(tracer, http.DefaultClient, false),
 		tracer: tracer,
 		logger: logger,
 		close:  make(chan struct{}),
@@ -86,6 +83,7 @@ func NewClientExample(logger logger.Logger) *ClientExample {
 	}
 }
 
+/*
 func (e *ClientExample) Run() error {
 	var (
 		ticSuccess = time.NewTicker(time.Millisecond * 350)
@@ -108,7 +106,7 @@ func (e *ClientExample) Run() error {
 		return nil
 	}
 }
-
+*/
 func (e *ClientExample) Stop() {
 	if err := e.tracer.Close(); err != nil {
 		e.logger.Error(context.TODO(), "close tracer: ", err)
@@ -116,31 +114,34 @@ func (e *ClientExample) Stop() {
 
 	close(e.close)
 }
+
 func (e *ClientExample) Test() error {
 	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
 	defer span.Finish()
 
-	client := &http.Client{Transport: &nethttp.Transport{}}
-
-	req, err := http.NewRequest("GET", "http://google.com", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://google.com", nil)
 	if err != nil {
 		return err
 	}
 
-	req = req.WithContext(ctx) // extend existing trace, if any
-
-	req, ht := nethttp.TraceRequest(e.tracer, req)
-	defer ht.Finish()
-
-	res, err := client.Do(req)
+	res, err := e.client.Do(req)
 	if err != nil {
 		return err
 	}
+
+	span.SetBaggageItem("test1", "tost")
+
+	span.LogKV("kv_log", 12)
+	time.Sleep(time.Second)
+	span.LogKV("kv_log", 13)
+	time.Sleep(time.Second)
+	span.LogKV("kv_log", 13)
 	res.Body.Close()
 
 	return nil
 }
-func (e *ClientExample) SendRequest(url string) {
+
+/*func (e *ClientExample) SendRequest(url string) {
 	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
 	defer span.Finish()
 
@@ -171,3 +172,4 @@ func (e *ClientExample) SendRequest(url string) {
 
 	e.logger.With("text", string(data)).Infof(ctx, "success")
 }
+*/

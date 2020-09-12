@@ -3,8 +3,6 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -120,39 +118,6 @@ func (s *Span) LogEventWithPayload(event string, payload interface{}) {
 // Deprecated: use LogFields or LogKV
 func (s *Span) Log(data opentracing.LogData) {
 	s.span.LogKV(data.Event, data.Payload)
-}
-
-func InjectMap(ctx context.Context, carrier map[string]string) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.TextMap, opentracing.TextMapCarrier(carrier))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func InjectBinary(ctx context.Context, carrier io.Writer) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.Binary, carrier)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func InjectHeaders(ctx context.Context, carrier http.Header) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(carrier))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func callerName() string {

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	jaegerURL  = "127.0.0.1:6831"
+	jaegerURL  = "127.0.0.1:6841"
 	serverAddr = "127.0.0.1:38572"
 )
 
