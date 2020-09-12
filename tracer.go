@@ -128,5 +128,9 @@ func (b SpanBuilder) Build() opentracing.Span {
 func (b SpanBuilder) BuildWithContext(ctx context.Context) (opentracing.Span, context.Context) {
 	span := b.Build()
 
-	return span.SetOperationName(callerName()), opentracing.ContextWithSpan(ctx, span)
+	if b.name == "" {
+		span.SetOperationName(callerName())
+	}
+
+	return span, opentracing.ContextWithSpan(ctx, span)
 }
