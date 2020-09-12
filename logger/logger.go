@@ -5,6 +5,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"go.uber.org/zap"
 
 	"github.com/gadavy/tracing/internal"
@@ -13,7 +14,6 @@ import (
 const (
 	traceKey = "trace_id"
 	spanKey  = "span_id"
-	errorTag = "error"
 )
 
 type Logger interface {
@@ -124,6 +124,6 @@ func (l *TraceLogger) withSpanContext(ctx context.Context) *zap.SugaredLogger {
 
 func setErrorTag(ctx context.Context) {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		span.SetTag(errorTag, true)
+		ext.Error.Set(span, true)
 	}
 }
