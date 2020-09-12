@@ -392,25 +392,32 @@ func TestTraceLogger_TraceID(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Pass#1",
+			name: "WithSpan#1",
 			args: args{
 				ctx: test.NewContextWithMockSpan(context.Background(), 2144414454365, 0),
 			},
 			want: "1f3490fd25d",
 		},
 		{
-			name: "Pass#2",
+			name: "WithSpan#2",
 			args: args{
 				ctx: test.NewContextWithMockSpan(context.Background(), 0, 0),
 			},
 			want: "0",
 		},
 		{
-			name: "Pass#3",
+			name: "WithSpan#3",
 			args: args{
 				ctx: test.NewContextWithMockSpan(context.Background(), 9543901873575874897, 0),
 			},
 			want: "8472c03031acd151",
+		},
+		{
+			name: "WithoutSpan#1",
+			args: args{
+				ctx: context.Background(),
+			},
+			want: "",
 		},
 	}
 	for _, tt := range tests {
@@ -436,7 +443,7 @@ func TestTraceLogger_With(t *testing.T) {
 		expected string
 	}{
 		{
-			name:   "WithoutTrace",
+			name:   "Pass",
 			logger: test.NewMockLogger(),
 			args: args{
 				obj:  struct{ Name string }{Name: "some name"},
@@ -472,13 +479,22 @@ func TestTraceLogger_WithJSON(t *testing.T) {
 		expected string
 	}{
 		{
-			name:   "WithoutTrace",
+			name:   "UnmarshallPass",
 			logger: test.NewMockLogger(),
 			args: args{
-				objData: []byte(`{"Name":"some name"}`) ,
-				args: []interface{}{"1", "2", "3"},
+				objData: []byte(`{"Name":"some name"}`),
+				args:    []interface{}{"1", "2", "3"},
 			},
 			expected: "debug\t123\t{\"obj\": {\"Name\":\"some name\"}}\n",
+		},
+		{
+			name:   "UnmarshallError",
+			logger: test.NewMockLogger(),
+			args: args{
+				objData: []byte(`{{"Name":"some name"}`),
+				args:    []interface{}{"1", "2", "3"},
+			},
+			expected: "debug\t123\t{\"obj\": \"unmarshal failed\", \"failed_json\": \"{{\\\"Name\\\":\\\"some name\\\"}\"}\n",
 		},
 	}
 	for _, tt := range tests {
