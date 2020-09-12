@@ -31,21 +31,12 @@ type Logger interface {
 }
 
 type TraceLogger struct {
-	traceKey string
 	*zap.SugaredLogger
 }
 
-func DefaultTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
+func NewTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
 		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		traceKey:      traceKey,
-	}
-}
-
-func NewTraceLogger(traceKey string, logger *zap.SugaredLogger) *TraceLogger {
-	return &TraceLogger{
-		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
-		traceKey:      traceKey,
 	}
 }
 

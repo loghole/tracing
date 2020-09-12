@@ -42,7 +42,7 @@ func TestTraceLogger_Debug(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Debug(tt.args.ctx, tt.args.args...)
 
@@ -90,7 +90,7 @@ func TestTraceLogger_Debugf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Debugf(tt.args.ctx, tt.args.template, tt.args.args...)
 
@@ -135,7 +135,7 @@ func TestTraceLogger_Info(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Info(tt.args.ctx, tt.args.args...)
 
@@ -183,7 +183,7 @@ func TestTraceLogger_Infof(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Infof(tt.args.ctx, tt.args.template, tt.args.args...)
 
@@ -228,7 +228,7 @@ func TestTraceLogger_Warn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Warn(tt.args.ctx, tt.args.args...)
 
@@ -276,7 +276,7 @@ func TestTraceLogger_Warnf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Warnf(tt.args.ctx, tt.args.template, tt.args.args...)
 
@@ -321,7 +321,7 @@ func TestTraceLogger_Error(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Error(tt.args.ctx, tt.args.args...)
 
@@ -369,7 +369,7 @@ func TestTraceLogger_Errorf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.Errorf(tt.args.ctx, tt.args.template, tt.args.args...)
 
@@ -422,7 +422,7 @@ func TestTraceLogger_TraceID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := NewTraceLogger(traceKey, zap.S())
+			l := NewTraceLogger(zap.S())
 
 			if got := l.TraceID(tt.args.ctx); got != tt.want {
 				t.Errorf("TraceID() = %v, want %v", got, tt.want)
@@ -454,7 +454,7 @@ func TestTraceLogger_With(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.With("obj", tt.args.obj).Debug(context.Background(), tt.args.args...)
 
@@ -499,7 +499,7 @@ func TestTraceLogger_WithJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := DefaultTraceLogger(tt.logger.SugaredLogger)
+			l := NewTraceLogger(tt.logger.SugaredLogger)
 
 			l.WithJSON("obj", tt.args.objData).Debug(context.Background(), tt.args.args...)
 
