@@ -220,7 +220,7 @@ func TestInjectMap(t *testing.T) {
 		{
 			name:     "InjectMap",
 			span:     mocktracer.New().StartSpan("test"),
-			expected: map[string]string{"mockpfx-ids-sampled": "true", "mockpfx-ids-spanid": "72", "mockpfx-ids-traceid": "71"},
+			expected: map[string]string{"mockpfx-ids-sampled": "true", "mockpfx-ids-spanid": "68", "mockpfx-ids-traceid": "67"},
 		},
 	}
 	for _, tt := range tests {
@@ -249,7 +249,7 @@ func TestInjectHeaders(t *testing.T) {
 		{
 			name:     "InjectHeaders",
 			span:     mocktracer.New().StartSpan("test"),
-			expected: http.Header{"Mockpfx-Ids-Sampled": []string{"true"}, "Mockpfx-Ids-Spanid": []string{"74"}, "Mockpfx-Ids-Traceid": []string{"73"}},
+			expected: http.Header{"Mockpfx-Ids-Sampled": []string{"true"}, "Mockpfx-Ids-Spanid": []string{"70"}, "Mockpfx-Ids-Traceid": []string{"69"}},
 		},
 	}
 	for _, tt := range tests {

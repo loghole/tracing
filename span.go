@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,13 +14,12 @@ import (
 )
 
 const (
-	_skipCallers = 3
+	baseSkipCallers = 3
 )
 
 type Span struct {
-	span opentracing.Span
-	once sync.Once
-	done uint32
+	span     opentracing.Span
+	finished uint32
 }
 
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
@@ -52,7 +50,7 @@ func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 		)
 
 		// Overriding the original context
-		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
+		*ctx = opentracing.ContextWithSpan(context.Background(), s.span)
 	}
 
 	return s
@@ -66,14 +64,20 @@ func (s *Span) WithTag(key string, val interface{}) *Span {
 	return s
 }
 
+func (s *Span) SetOperationName(operationName string) *Span {
+	if s.span != nil {
+		s.span = s.span.SetOperationName(operationName)
+	}
+
+	return s
+}
+
 func (s *Span) Finish() {
-	if !atomic.CompareAndSwapUint32(&s.done, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&s.finished, 0, 1) {
 		warnf("%s finish finished span", callerLine())
 	}
 
-	if s.span != nil {
-		s.once.Do(s.span.Finish)
-	}
+	s.span.Finish()
 }
 
 func (s *Span) Context(ctx context.Context) context.Context {
@@ -124,7 +128,7 @@ func InjectHeaders(ctx context.Context, carrier http.Header) error {
 func callerName() string {
 	var pc [1]uintptr
 
-	runtime.Callers(_skipCallers, pc[:])
+	runtime.Callers(baseSkipCallers, pc[:])
 
 	f := runtime.FuncForPC(pc[0])
 	if f == nil {
@@ -139,7 +143,7 @@ func callerName() string {
 func callerLine() string {
 	var pc [1]uintptr
 
-	runtime.Callers(_skipCallers, pc[:])
+	runtime.Callers(baseSkipCallers, pc[:])
 
 	f := runtime.FuncForPC(pc[0])
 	if f == nil {

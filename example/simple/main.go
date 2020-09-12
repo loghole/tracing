@@ -8,11 +8,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gadavy/tracing"
+	"github.com/gadavy/tracing/logger"
 )
 
 var (
-	service   = ""
-	jaegerURL = ""
+	service   = "example"
+	jaegerURL = "127.0.0.1:6831"
 )
 
 func main() {
@@ -21,14 +22,16 @@ func main() {
 		panic(err)
 	}
 
-	logger := tracing.DefaultTraceLogger(dev.Sugar())
+	log := logger.DefaultTraceLogger(dev.Sugar())
 
 	tracer, err := tracing.NewTracer(tracing.DefaultConfiguration(service, jaegerURL))
 	if err != nil {
 		panic(err)
 	}
 
-	example := NewExample(tracer, logger)
+	defer tracer.Close()
+
+	example := NewExample(tracer, log)
 
 	fmt.Println("=============== example 1 ===============")
 	example.ExampleCreateSpanBase()
@@ -39,10 +42,10 @@ func main() {
 
 type Example struct {
 	tracer *tracing.Tracer
-	logger *tracing.TraceLogger
+	logger logger.Logger
 }
 
-func NewExample(tracer *tracing.Tracer, logger *tracing.TraceLogger) *Example {
+func NewExample(tracer *tracing.Tracer, logger logger.Logger) *Example {
 	return &Example{
 		tracer: tracer,
 		logger: logger,
