@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/gadavy/tracing"
 	"github.com/gadavy/tracing/logger"
@@ -33,31 +33,33 @@ func main() {
 	log := logger.NewTraceLogger(dev.Sugar())
 
 	client := NewClientExample(log)
+	client.Test()
+	defer client.Stop()
 
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
 
-	errGroup, ctx := errgroup.WithContext(context.Background())
-
-	errGroup.Go(func() error {
-		log.Info(ctx, "start server")
-
-		return client.Run()
-	})
-
-	// Exit from app.
-	select {
-	case <-exit:
-		log.Info(ctx, "stopping application")
-	case <-ctx.Done():
-		log.Error(ctx, "stopping application with error")
-	}
-
-	client.Stop()
-
-	if err := errGroup.Wait(); err != nil {
-		log.Error(ctx, err)
-	}
+	// errGroup, ctx := errgroup.WithContext(context.Background())
+	//
+	// errGroup.Go(func() error {
+	// 	log.Info(ctx, "start server")
+	//
+	// 	return client.Run()
+	// })
+	//
+	// // Exit from app.
+	// select {
+	// case <-exit:
+	// 	log.Info(ctx, "stopping application")
+	// case <-ctx.Done():
+	// 	log.Error(ctx, "stopping application with error")
+	// }
+	//
+	// client.Stop()
+	//
+	// if err := errGroup.Wait(); err != nil {
+	// 	log.Error(ctx, err)
+	// }
 }
 
 type ClientExample struct {
@@ -114,7 +116,30 @@ func (e *ClientExample) Stop() {
 
 	close(e.close)
 }
+func (e *ClientExample) Test() error {
+	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
+	defer span.Finish()
 
+	client := &http.Client{Transport: &nethttp.Transport{}}
+
+	req, err := http.NewRequest("GET", "http://google.com", nil)
+	if err != nil {
+		return err
+	}
+
+	req = req.WithContext(ctx) // extend existing trace, if any
+
+	req, ht := nethttp.TraceRequest(e.tracer, req)
+	defer ht.Finish()
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	res.Body.Close()
+
+	return nil
+}
 func (e *ClientExample) SendRequest(url string) {
 	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
 	defer span.Finish()

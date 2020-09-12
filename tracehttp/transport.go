@@ -1,12 +1,19 @@
 package tracehttp
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+)
+
+type key string
+
+const (
+	NextRoundTrip key = "next"
 )
 
 type Transport struct {
@@ -27,36 +34,43 @@ func NewTransport(tracer opentracing.Tracer, roundTripper http.RoundTripper) *Tr
 
 // RoundTrip implements the RoundTripper interface.
 func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	var span opentracing.Span
+	var parentCtx opentracing.SpanContext
 
 	if parent := opentracing.SpanFromContext(req.Context()); parent != nil {
-		span = t.tracer.StartSpan(buildSpanName(req), opentracing.ChildOf(parent.Context()))
-		defer span.Finish()
-
-		ext.SpanKindRPCClient.Set(span)
-		ext.HTTPMethod.Set(span, req.Method)
-		ext.HTTPUrl.Set(span, req.URL.String())
-
-		err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.Header))
-		if err != nil {
-			log.Printf("[error] inject headers failed: %v", err)
-		}
+		parentCtx = parent.Context()
 	}
 
-	resp, err = t.base.RoundTrip(req)
+	span := t.tracer.StartSpan(buildSpanName(req), opentracing.ChildOf(parentCtx))
+	defer span.Finish()
+
+	ext.Component.Set(span, "http")
+	ext.SpanKindRPCClient.Set(span)
+	ext.HTTPMethod.Set(span, req.Method)
+	ext.HTTPUrl.Set(span, req.URL.String())
+
+	err = span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.Header))
 	if err != nil {
-		if span != nil {
-			ext.Error.Set(span, true)
-		}
+		log.Printf("[error] inject headers failed: %v", err)
+	}
+
+	resp, err = t.base.RoundTrip(req.WithContext(opentracing.ContextWithSpan(req.Context(), span)))
+	if err != nil {
+		ext.Error.Set(span, true)
 
 		return resp, err
 	}
 
-	if span != nil {
-		ext.HTTPStatusCode.Set(span, uint16(resp.StatusCode))
-	}
+	ext.HTTPStatusCode.Set(span, uint16(resp.StatusCode))
 
 	return resp, nil
+}
+
+func (t *Transport) checkNextRoundTrip(req *http.Request) (*http.Request, bool) {
+	if val := req.Context().Value(NextRoundTrip); val != nil {
+		return req, true
+	}
+
+	return req.WithContext(context.WithValue(req.Context(), NextRoundTrip, true)), false
 }
 
 func buildSpanName(r *http.Request) string {

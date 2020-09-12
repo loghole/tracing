@@ -45,6 +45,7 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 		span := m.tracer.StartSpan(m.options.NameFunc(r), ext.RPCServerOption(spanCtx))
 		defer span.Finish()
 
+		ext.Component.Set(span, "http")
 		ext.HTTPMethod.Set(span, r.Method)
 		ext.HTTPUrl.Set(span, r.URL.String())
 
