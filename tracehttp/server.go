@@ -8,6 +8,8 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
+const ComponentName = "net/http"
+
 type Option func(options *Options)
 
 func WithNameFunc(f func(r *http.Request) string) Option {
@@ -33,16 +35,21 @@ type Middleware struct {
 }
 
 func NewMiddleware(tracer opentracing.Tracer, options ...Option) *Middleware {
-	opts := &Options{
-		NameFunc: defaultServerNameFunc,
-		Filter:   func(r *http.Request) bool { return true },
-	}
+	middleware := &Middleware{tracer: tracer, options: &Options{}}
 
 	for _, option := range options {
-		option(opts)
+		option(middleware.options)
 	}
 
-	return &Middleware{tracer: tracer, options: opts}
+	if middleware.options.Filter == nil {
+		middleware.options.Filter = middleware.defaultFilterFunc
+	}
+
+	if middleware.options.NameFunc == nil {
+		middleware.options.NameFunc = middleware.defaultNameFunc
+	}
+
+	return middleware
 }
 
 func (m *Middleware) Middleware(next http.Handler) http.Handler {
@@ -58,7 +65,7 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 		span := m.tracer.StartSpan(m.options.NameFunc(r), ext.RPCServerOption(spanCtx))
 		defer span.Finish()
 
-		ext.Component.Set(span, "net/http")
+		ext.Component.Set(span, ComponentName)
 		ext.HTTPMethod.Set(span, r.Method)
 		ext.HTTPUrl.Set(span, r.URL.String())
 
@@ -74,8 +81,12 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func defaultServerNameFunc(r *http.Request) string {
+func (m *Middleware) defaultNameFunc(r *http.Request) string {
 	return strings.Join([]string{"HTTP", r.Method, r.RequestURI}, " ")
+}
+
+func (m *Middleware) defaultFilterFunc(*http.Request) bool {
+	return true
 }
 
 type StatusCodeTracker struct {
