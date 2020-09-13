@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gadavy/tracing"
-	"github.com/gadavy/tracing/tracelog"
+	"github.com/loghole/tracing"
+	"github.com/loghole/tracing/tracelog"
 )
 
 const (

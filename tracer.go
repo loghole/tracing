@@ -11,7 +11,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
 
-	"github.com/gadavy/tracing/internal"
+	"github.com/loghole/tracing/internal"
 )
 
 type Tracer struct {

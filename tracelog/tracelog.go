@@ -8,7 +8,7 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"go.uber.org/zap"
 
-	"github.com/gadavy/tracing/internal"
+	"github.com/loghole/tracing/internal"
 )
 
 const (

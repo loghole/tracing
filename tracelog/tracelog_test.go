@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	"github.com/gadavy/tracing/test"
+	"github.com/loghole/tracing/test"
 )
 
 func TestTraceLogger_Debug(t *testing.T) {

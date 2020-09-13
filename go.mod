@@ -1,4 +1,4 @@
-module github.com/gadavy/tracing
+module github.com/loghole/tracing
 
 go 1.15
 

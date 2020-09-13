@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gadavy/tracing"
-	"github.com/gadavy/tracing/tracehttp"
-	"github.com/gadavy/tracing/tracelog"
+	"github.com/loghole/tracing"
+	"github.com/loghole/tracing/tracehttp"
+	"github.com/loghole/tracing/tracelog"
 )
 
 const (
