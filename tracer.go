@@ -11,7 +11,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
 
-	"github.com/gadavy/tracing/internal"
+	"github.com/loghole/tracing/internal"
 )
 
 type Tracer struct {
@@ -117,17 +117,20 @@ func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 	return b
 }
 
-func (b SpanBuilder) Build() *Span {
+func (b SpanBuilder) Build() opentracing.Span {
 	if b.name == "" {
 		b.name = callerName()
 	}
 
-	return &Span{span: b.tracer.StartSpan(b.name, b.options...)}
+	return &Span{span: b.tracer.StartSpan(b.name, b.options...), tracer: b.tracer}
 }
 
-func (b SpanBuilder) BuildWithContext(ctx context.Context) (*Span, context.Context) {
+func (b SpanBuilder) BuildWithContext(ctx context.Context) (opentracing.Span, context.Context) {
 	span := b.Build()
-	ctx = span.Context(ctx)
 
-	return span, ctx
+	if b.name == "" {
+		span.SetOperationName(callerName())
+	}
+
+	return span, opentracing.ContextWithSpan(ctx, span)
 }

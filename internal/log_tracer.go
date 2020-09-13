@@ -2,7 +2,6 @@ package internal
 
 import (
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -31,12 +30,12 @@ func (t *LogTracer) StartSpan(_ string, opts ...opentracing.StartSpanOption) ope
 	}
 
 	for _, ref := range s.References {
-		if val, ok := ref.ReferencedContext.(*logSpanContext); ok {
-			return &logSpan{traceID: val.traceID, tracer: t}
+		if val, ok := ref.ReferencedContext.(*LogSpanContext); ok {
+			return &LogSpan{traceID: val.span.traceID, spanID: t.generateSpanID(), tracer: t}
 		}
 	}
 
-	return &logSpan{traceID: t.generateTraceID(), tracer: t}
+	return &LogSpan{traceID: t.generateTraceID(), spanID: t.generateSpanID(), tracer: t}
 }
 
 // Inject belongs to the Tracer interface.
@@ -46,15 +45,11 @@ func (t *LogTracer) Inject(sp opentracing.SpanContext, _, carrier interface{}) e
 		return nil
 	}
 
-	if val, ok := sp.(*logSpanContext); ok {
-		m[jaeger.TraceContextHeaderName] = val.traceID
+	if val, ok := sp.(*LogSpanContext); ok {
+		m[jaeger.TraceContextHeaderName] = val.span.spanID.String()
 	}
 
 	return nil
-}
-
-func (t *LogTracer) generateTraceID() string {
-	return strconv.FormatInt(t.rnd.Int63(), 16)
 }
 
 // Extract belongs to the Tracer interface.
@@ -62,28 +57,44 @@ func (t LogTracer) Extract(_, _ interface{}) (opentracing.SpanContext, error) {
 	return nil, opentracing.ErrSpanContextNotFound
 }
 
-type logSpanContext struct {
-	traceID string
+func (t *LogTracer) generateTraceID() jaeger.TraceID {
+	return jaeger.TraceID{Low: t.rnd.Uint64()}
 }
 
-// logSpanContext:
-func (n *logSpanContext) ForeachBaggageItem(_ func(k, v string) bool) {}
+func (t *LogTracer) generateSpanID() jaeger.SpanID {
+	return jaeger.SpanID(t.rnd.Uint64())
+}
 
-type logSpan struct {
+type LogSpanContext struct {
+	span LogSpan
+}
+
+func (n *LogSpanContext) ForeachBaggageItem(_ func(k, v string) bool) {}
+
+func (n *LogSpanContext) TraceID() jaeger.TraceID {
+	return n.span.traceID
+}
+
+func (n *LogSpanContext) SpanID() jaeger.SpanID {
+	return n.span.spanID
+}
+
+type LogSpan struct {
 	tracer  *LogTracer
-	traceID string
+	traceID jaeger.TraceID
+	spanID  jaeger.SpanID
 }
 
-func (n *logSpan) Context() opentracing.SpanContext                { return &logSpanContext{traceID: n.traceID} }
-func (n *logSpan) SetBaggageItem(_, _ string) opentracing.Span     { return n }
-func (n *logSpan) BaggageItem(_ string) string                     { return "" }
-func (n *logSpan) SetTag(_ string, _ interface{}) opentracing.Span { return n }
-func (n *logSpan) LogFields(_ ...log.Field)                        {}
-func (n *logSpan) LogKV(_ ...interface{})                          {}
-func (n *logSpan) Finish()                                         {}
-func (n *logSpan) FinishWithOptions(_ opentracing.FinishOptions)   {}
-func (n *logSpan) SetOperationName(_ string) opentracing.Span      { return n }
-func (n *logSpan) Tracer() opentracing.Tracer                      { return n.tracer }
-func (n *logSpan) LogEvent(_ string)                               {}
-func (n *logSpan) LogEventWithPayload(_ string, _ interface{})     {}
-func (n *logSpan) Log(_ opentracing.LogData)                       {}
+func (s *LogSpan) Context() opentracing.SpanContext                { return &LogSpanContext{span: *s} }
+func (s *LogSpan) SetBaggageItem(_, _ string) opentracing.Span     { return s }
+func (s *LogSpan) BaggageItem(_ string) string                     { return "" }
+func (s *LogSpan) SetTag(_ string, _ interface{}) opentracing.Span { return s }
+func (s *LogSpan) LogFields(_ ...log.Field)                        {}
+func (s *LogSpan) LogKV(_ ...interface{})                          {}
+func (s *LogSpan) Finish()                                         {}
+func (s *LogSpan) FinishWithOptions(_ opentracing.FinishOptions)   {}
+func (s *LogSpan) SetOperationName(_ string) opentracing.Span      { return s }
+func (s *LogSpan) Tracer() opentracing.Tracer                      { return s.tracer }
+func (s *LogSpan) LogEvent(_ string)                               {}
+func (s *LogSpan) LogEventWithPayload(_ string, _ interface{})     {}
+func (s *LogSpan) Log(_ opentracing.LogData)                       {}

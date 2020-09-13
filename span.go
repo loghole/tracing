@@ -3,36 +3,30 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 )
 
 const (
-	_skipCallers = 3
+	baseSkipCallers = 3
 )
 
 type Span struct {
-	span opentracing.Span
-	once sync.Once
-	done uint32
+	tracer opentracing.Tracer
+	span   opentracing.Span
+
+	finished uint32
 }
 
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(
-			callerName(),
-			opentracing.ChildOf(span.Context()),
-			opentracing.StartTime(time.Now()),
-		)
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
 
 		// Overriding the original context
 		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
@@ -45,42 +39,36 @@ func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
 	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(
-			callerName(),
-			opentracing.FollowsFrom(span.Context()),
-			opentracing.StartTime(time.Now()),
-		)
+		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
 
 		// Overriding the original context
-		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
-	}
-
-	return s
-}
-
-func (s *Span) WithTag(key string, val interface{}) *Span {
-	if s.span != nil {
-		s.span.SetTag(key, val)
+		*ctx = opentracing.ContextWithSpan(context.Background(), s.span)
 	}
 
 	return s
 }
 
 func (s *Span) Finish() {
-	if !atomic.CompareAndSwapUint32(&s.done, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&s.finished, 0, 1) {
 		warnf("%s finish finished span", callerLine())
 	}
 
 	if s.span != nil {
-		s.once.Do(s.span.Finish)
+		s.span.Finish()
 	}
 }
 
-func (s *Span) Context(ctx context.Context) context.Context {
-	return opentracing.ContextWithSpan(ctx, s.span)
+func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
+	if !atomic.CompareAndSwapUint32(&s.finished, 0, 1) {
+		warnf("%s finish finished span", callerLine())
+	}
+
+	if s.span != nil {
+		s.span.FinishWithOptions(opts)
+	}
 }
 
-func (s *Span) GetSpanContext() opentracing.SpanContext {
+func (s *Span) Context() opentracing.SpanContext {
 	if s.span != nil {
 		return s.span.Context()
 	}
@@ -88,43 +76,83 @@ func (s *Span) GetSpanContext() opentracing.SpanContext {
 	return nil
 }
 
-func InjectMap(ctx context.Context, carrier map[string]string) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.TextMap, opentracing.TextMapCarrier(carrier))
-		if err != nil {
-			return err
-		}
+func (s *Span) SetOperationName(operationName string) opentracing.Span {
+	if s.span != nil {
+		return s.span.SetOperationName(operationName)
+	}
+
+	return s
+}
+
+func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
+	if s.span != nil {
+		return s.span.SetTag(key, value)
+	}
+
+	return s
+}
+
+func (s *Span) LogFields(fields ...log.Field) {
+	if s.span != nil {
+		s.span.LogFields(fields...)
+	}
+}
+
+func (s *Span) LogKV(alternatingKeyValues ...interface{}) {
+	if s.span != nil {
+		s.span.LogKV(alternatingKeyValues...)
+	}
+}
+
+func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
+	if s.span != nil {
+		return s.span.SetBaggageItem(restrictedKey, value)
+	}
+
+	return s
+}
+
+func (s *Span) BaggageItem(restrictedKey string) string {
+	if s.span != nil {
+		return s.span.BaggageItem(restrictedKey)
+	}
+
+	return ""
+}
+
+func (s *Span) Tracer() opentracing.Tracer {
+	if s.tracer != nil {
+		return s.tracer
 	}
 
 	return nil
 }
 
-func InjectBinary(ctx context.Context, carrier io.Writer) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.Binary, carrier)
-		if err != nil {
-			return err
-		}
+// Deprecated: use LogFields or LogKV
+func (s *Span) LogEvent(event string) {
+	if s.span != nil {
+		s.span.LogFields(log.String(event, ""))
 	}
-
-	return nil
 }
 
-func InjectHeaders(ctx context.Context, carrier http.Header) error {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(carrier))
-		if err != nil {
-			return err
-		}
+// Deprecated: use LogFields or LogKV
+func (s *Span) LogEventWithPayload(event string, payload interface{}) {
+	if s.span != nil {
+		s.span.LogKV(event, payload)
 	}
+}
 
-	return nil
+// Deprecated: use LogFields or LogKV
+func (s *Span) Log(data opentracing.LogData) {
+	if s.span != nil {
+		s.span.LogKV(data.Event, data.Payload)
+	}
 }
 
 func callerName() string {
 	var pc [1]uintptr
 
-	runtime.Callers(_skipCallers, pc[:])
+	runtime.Callers(baseSkipCallers, pc[:])
 
 	f := runtime.FuncForPC(pc[0])
 	if f == nil {
@@ -139,7 +167,7 @@ func callerName() string {
 func callerLine() string {
 	var pc [1]uintptr
 
-	runtime.Callers(_skipCallers, pc[:])
+	runtime.Callers(baseSkipCallers, pc[:])
 
 	f := runtime.FuncForPC(pc[0])
 	if f == nil {
