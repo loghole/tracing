@@ -15,8 +15,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gadavy/tracing"
-	"github.com/gadavy/tracing/logger"
 	"github.com/gadavy/tracing/tracehttp"
+	"github.com/gadavy/tracing/tracelog"
 )
 
 const (
@@ -30,9 +30,9 @@ func main() {
 		panic(err)
 	}
 
-	log := logger.NewTraceLogger(dev.Sugar())
+	logger := tracelog.NewTraceLogger(dev.Sugar())
 
-	client := NewClientExample(log)
+	client := NewClientExample(logger)
 
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
@@ -40,7 +40,7 @@ func main() {
 	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		log.Info(ctx, "start server")
+		logger.Info(ctx, "start server")
 
 		return client.Run()
 	})
@@ -48,28 +48,28 @@ func main() {
 	// Exit from app.
 	select {
 	case <-exit:
-		log.Info(ctx, "stopping application")
+		logger.Info(ctx, "stopping application")
 	case <-ctx.Done():
-		log.Error(ctx, "stopping application with error")
+		logger.Error(ctx, "stopping application with error")
 	}
 
 	client.Stop()
 
 	if err := errGroup.Wait(); err != nil {
-		log.Error(ctx, err)
+		logger.Error(ctx, err)
 	}
 }
 
 type ClientExample struct {
 	client *tracehttp.Client
 	tracer *tracing.Tracer
-	logger logger.Logger
+	logger tracelog.Logger
 
 	close chan struct{}
 	rnd   *rand.Rand
 }
 
-func NewClientExample(logger logger.Logger) *ClientExample {
+func NewClientExample(logger tracelog.Logger) *ClientExample {
 	tracer, err := tracing.NewTracer(tracing.DefaultConfiguration("example_client", jaegerURL))
 	if err != nil {
 		panic(err)
@@ -142,4 +142,3 @@ func (e *ClientExample) SendRequest(url string) {
 
 	e.logger.With("text", string(data)).Infof(ctx, "success")
 }
-

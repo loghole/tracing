@@ -45,10 +45,10 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 		parentCtx = parent.Context()
 	}
 
-	span := t.tracer.StartSpan(buildSpanName(req), opentracing.ChildOf(parentCtx))
+	span := t.tracer.StartSpan(t.defaultNameFunc(req), opentracing.ChildOf(parentCtx))
 	defer span.Finish()
 
-	ext.Component.Set(span, "http")
+	ext.Component.Set(span, ComponentName)
 	ext.SpanKindRPCClient.Set(span)
 	ext.HTTPMethod.Set(span, req.Method)
 	ext.HTTPUrl.Set(span, req.URL.String())
@@ -70,6 +70,6 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 	return resp, nil
 }
 
-func buildSpanName(r *http.Request) string {
-	return strings.Join([]string{"HTTP", r.Method}, " ")
+func (t *Transport) defaultNameFunc(req *http.Request) string {
+	return strings.Join([]string{"HTTP", req.Method, req.RequestURI}, " ")
 }

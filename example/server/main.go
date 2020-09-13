@@ -13,8 +13,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gadavy/tracing"
-	"github.com/gadavy/tracing/logger"
 	"github.com/gadavy/tracing/tracehttp"
+	"github.com/gadavy/tracing/tracelog"
 )
 
 const (
@@ -28,9 +28,9 @@ func main() {
 		panic(err)
 	}
 
-	log := logger.NewTraceLogger(dev.Sugar())
+	logger := tracelog.NewTraceLogger(dev.Sugar())
 
-	serverExample := NewServerExample(log)
+	serverExample := NewServerExample(logger)
 
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
@@ -38,7 +38,7 @@ func main() {
 	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		log.Info(ctx, "start server")
+		logger.Info(ctx, "start server")
 
 		return serverExample.ListenAndServe()
 	})
@@ -46,25 +46,25 @@ func main() {
 	// Exit from app.
 	select {
 	case <-exit:
-		log.Info(ctx, "stopping application")
+		logger.Info(ctx, "stopping application")
 	case <-ctx.Done():
-		log.Error(ctx, "stopping application with error")
+		logger.Error(ctx, "stopping application with error")
 	}
 
 	serverExample.Stop()
 
 	if err := errGroup.Wait(); err != nil {
-		log.Error(ctx, err)
+		logger.Error(ctx, err)
 	}
 }
 
 type ServerExample struct {
 	server *http.Server
 	tracer *tracing.Tracer
-	logger logger.Logger
+	logger tracelog.Logger
 }
 
-func NewServerExample(logger logger.Logger) *ServerExample {
+func NewServerExample(logger tracelog.Logger) *ServerExample {
 	tracer, err := tracing.NewTracer(tracing.DefaultConfiguration("example_server", jaegerURL))
 	if err != nil {
 		panic(err)
@@ -117,6 +117,6 @@ func (e *ServerExample) HandlerError(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Millisecond * 500)
 
-	w.Write([]byte("Error"))
 	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte("Error"))
 }
