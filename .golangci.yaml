@@ -9,6 +9,8 @@ linters:
    - godot
    - nolintlint
    - gci
+   - exhaustivestruct
+   - wrapcheck
 linters-settings:
   gocritic:
     enabled-tags:
