@@ -9,6 +9,8 @@ import (
 
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/opentracing/opentracing-go"
+
+	"github.com/loghole/tracing/internal/metrics"
 )
 
 type Client struct {
@@ -32,7 +34,14 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 		defer ht.Finish()
 	}
 
-	return c.client.Do(req)
+	resp, err := c.client.Do(req)
+	if err != nil || resp.StatusCode >= http.StatusBadRequest {
+		metrics.HTTPFailedOutputReqCounter.Inc()
+	} else {
+		metrics.HTTPSuccessOutputReqCounter.Inc()
+	}
+
+	return resp, err
 }
 
 func (c *Client) Get(ctx context.Context, uri string) (*http.Response, error) {

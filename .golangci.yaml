@@ -1,16 +1,17 @@
 run:
   tests: false
   skip-dirs:
-  - scripts
+    - scripts
+    - internal/otgrpc # it's a copy of https://github.com/grpc-ecosystem/grpc-opentracing
 linters:
   enable-all: true
   disable:
-   - goerr113
-   - godot
-   - nolintlint
-   - gci
-   - exhaustivestruct
-   - wrapcheck
+    - nolintlint
+    - gci
+    - exhaustivestruct
+    - wrapcheck
+service:
+  golangci-lint-version: 1.34.x
 linters-settings:
   gocritic:
     enabled-tags:

@@ -6,6 +6,8 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+
+	"github.com/loghole/tracing/internal/metrics"
 )
 
 const ComponentName = "net/http"
@@ -52,6 +54,12 @@ func NewMiddleware(tracer opentracing.Tracer, options ...Option) *Middleware {
 	return middleware
 }
 
+func Handler(tracer opentracing.Tracer, options ...Option) func(next http.Handler) http.Handler {
+	m := NewMiddleware(tracer, options...)
+
+	return m.Middleware
+}
+
 func (m *Middleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !m.options.Filter(r) {
@@ -75,8 +83,11 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 
 		ext.HTTPStatusCode.Set(span, tracker.OpentracingCode())
 
-		if tracker.code >= http.StatusInternalServerError {
+		if tracker.code >= http.StatusBadRequest {
+			metrics.HTTPFailedInputReqCounter.Inc()
 			ext.Error.Set(span, true)
+		} else {
+			metrics.HTTPSuccessInputReqCounter.Inc()
 		}
 	})
 }

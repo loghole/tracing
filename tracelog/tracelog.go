@@ -7,8 +7,10 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/loghole/tracing/internal"
+	"github.com/loghole/tracing/internal/logtracer"
+	"github.com/loghole/tracing/internal/metrics"
 )
 
 const (
@@ -36,7 +38,7 @@ type TraceLogger struct {
 
 func NewTraceLogger(logger *zap.SugaredLogger) *TraceLogger {
 	return &TraceLogger{
-		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		SugaredLogger: logger.Desugar().WithOptions(zap.AddCallerSkip(1), zap.Hooks(metricHook)).Sugar(),
 	}
 }
 
@@ -65,13 +67,13 @@ func (l *TraceLogger) Warnf(ctx context.Context, template string, args ...interf
 }
 
 func (l *TraceLogger) Error(ctx context.Context, args ...interface{}) {
-	setErrorTag(ctx)
 	l.withSpanContext(ctx).Error(args...)
+	setErrorTag(ctx)
 }
 
 func (l *TraceLogger) Errorf(ctx context.Context, template string, args ...interface{}) {
-	setErrorTag(ctx)
 	l.withSpanContext(ctx).Errorf(template, args...)
+	setErrorTag(ctx)
 }
 
 func (l TraceLogger) With(args ...interface{}) Logger {
@@ -91,18 +93,12 @@ func (l *TraceLogger) WithJSON(key string, b []byte) Logger {
 }
 
 func (l *TraceLogger) TraceID(ctx context.Context) string {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		if sc, ok := span.Context().(internal.SpanContext); ok {
-			return sc.TraceID().String()
-		}
-	}
-
-	return ""
+	return TraceID(ctx)
 }
 
 func (l *TraceLogger) withSpanContext(ctx context.Context) *zap.SugaredLogger {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		if sc, ok := span.Context().(internal.SpanContext); ok {
+		if sc, ok := span.Context().(logtracer.SpanContext); ok {
 			return l.Desugar().With(
 				zap.Stringer(traceKey, sc.TraceID()),
 				zap.Stringer(spanKey, sc.SpanID()),
@@ -113,8 +109,33 @@ func (l *TraceLogger) withSpanContext(ctx context.Context) *zap.SugaredLogger {
 	return l.SugaredLogger
 }
 
+func TraceID(ctx context.Context) string {
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		if sc, ok := span.Context().(logtracer.SpanContext); ok {
+			return sc.TraceID().String()
+		}
+	}
+
+	return ""
+}
+
 func setErrorTag(ctx context.Context) {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		ext.Error.Set(span, true)
 	}
+}
+
+func metricHook(entry zapcore.Entry) error { // nolint:gocritic // implement zap.Hooks()
+	switch entry.Level { // nolint:exhaustive // used need only this values.
+	case zapcore.DebugLevel:
+		metrics.DebugLogsCounter.Inc()
+	case zapcore.InfoLevel:
+		metrics.InfoLogsCounter.Inc()
+	case zapcore.WarnLevel:
+		metrics.WarnLogsCounter.Inc()
+	case zapcore.ErrorLevel:
+		metrics.ErrorLogsCounter.Inc()
+	}
+
+	return nil
 }

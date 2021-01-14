@@ -29,7 +29,7 @@ func SpanFromContext(ctx context.Context) opentracing.Span {
 // The keys must all be strings. The values may be strings, numeric types,
 // bools, Go error instances, or arbitrary structs.
 //
-// (Note to implementors: consider the log.InterleavedKVToFields() helper)
+// (Note to implementors: consider the log.InterleavedKVToFields() helper).
 func LogKV(ctx context.Context, key string, value interface{}) {
 	if span := SpanFromContext(ctx); span != nil {
 		span.LogKV(key, value)
