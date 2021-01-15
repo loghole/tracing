@@ -1,4 +1,4 @@
-package internal
+package logtracer
 
 import (
 	"github.com/opentracing/opentracing-go"

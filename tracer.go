@@ -11,7 +11,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
 
-	"github.com/loghole/tracing/internal"
+	"github.com/loghole/tracing/internal/logtracer"
 )
 
 type Tracer struct {
@@ -44,7 +44,7 @@ func NewTracer(configuration *config.Configuration, options ...config.Option) (*
 	}
 
 	if _, ok := tracer.(*opentracing.NoopTracer); ok {
-		return &Tracer{Tracer: internal.NewLogTracer(), closer: closer}, nil
+		return &Tracer{Tracer: logtracer.NewLogTracer(), closer: closer}, nil
 	}
 
 	return &Tracer{Tracer: tracer, closer: closer}, nil

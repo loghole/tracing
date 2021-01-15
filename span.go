@@ -128,21 +128,21 @@ func (s *Span) Tracer() opentracing.Tracer {
 	return nil
 }
 
-// Deprecated: use LogFields or LogKV
+// Deprecated: use LogFields or LogKV.
 func (s *Span) LogEvent(event string) {
 	if s.span != nil {
 		s.span.LogFields(log.String(event, ""))
 	}
 }
 
-// Deprecated: use LogFields or LogKV
+// Deprecated: use LogFields or LogKV.
 func (s *Span) LogEventWithPayload(event string, payload interface{}) {
 	if s.span != nil {
 		s.span.LogKV(event, payload)
 	}
 }
 
-// Deprecated: use LogFields or LogKV
+// Deprecated: use LogFields or LogKV.
 func (s *Span) Log(data opentracing.LogData) {
 	if s.span != nil {
 		s.span.LogKV(data.Event, data.Payload)
