@@ -114,5 +114,5 @@ func (w metadataReaderWriter) ForeachKey(handler func(key, val string) error) er
 }
 
 func defaultNameFunc(r *grpc.UnaryServerInfo) string {
-	return strings.Join([]string{"GRPC", r.FullMethod}, " ")
+	return "GRPC " + r.FullMethod
 }

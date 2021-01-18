@@ -1,15 +1,16 @@
 package otgrpc
 
 import (
+	"io"
+	"runtime"
+	"sync/atomic"
+
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/opentracing/opentracing-go/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"runtime"
-	"sync/atomic"
 )
 
 // OpenTracingClientInterceptor returns a grpc.UnaryClientInterceptor suitable
@@ -47,7 +48,7 @@ func OpenTracingClientInterceptor(tracer opentracing.Tracer, optFuncs ...Option)
 			return invoker(ctx, method, req, resp, cc, opts...)
 		}
 		clientSpan := tracer.StartSpan(
-			method,
+			defaultNameFunc(method),
 			opentracing.ChildOf(parentCtx),
 			ext.SpanKindRPCClient,
 			gRPCComponentTag,
@@ -110,7 +111,7 @@ func OpenTracingStreamClientInterceptor(tracer opentracing.Tracer, optFuncs ...O
 		}
 
 		clientSpan := tracer.StartSpan(
-			method,
+			defaultNameFunc(method),
 			opentracing.ChildOf(parentCtx),
 			ext.SpanKindRPCClient,
 			gRPCComponentTag,
@@ -236,4 +237,8 @@ func injectSpanContext(ctx context.Context, tracer opentracing.Tracer, clientSpa
 		clientSpan.LogFields(log.String("event", "Tracer.Inject() failed"), log.Error(err))
 	}
 	return metadata.NewOutgoingContext(ctx, md)
+}
+
+func defaultNameFunc(method string) string {
+	return "GRPC " + method
 }

@@ -31,6 +31,9 @@ var (
 	HTTPSuccessOutputReqCounter = outputRequestsCounter.WithLabelValues("http", "success")
 	HTTPFailedOutputReqCounter  = outputRequestsCounter.WithLabelValues("http", "failed")
 
+	STANSuccessOutputReqCounter = outputRequestsCounter.WithLabelValues("stan", "success")
+	STANFailedOutputReqCounter  = outputRequestsCounter.WithLabelValues("stan", "failed")
+
 	inputRequestsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        "input_requests_total",
 		Help:        "Number of input requests",
@@ -42,6 +45,9 @@ var (
 
 	HTTPSuccessInputReqCounter = inputRequestsCounter.WithLabelValues("http", "success")
 	HTTPFailedInputReqCounter  = inputRequestsCounter.WithLabelValues("http", "failed")
+
+	StanSuccessInputReqCounter = inputRequestsCounter.WithLabelValues("stan", "success")
+	StanFailedInputReqCounter  = inputRequestsCounter.WithLabelValues("stan", "failed")
 )
 
 func Register() error {
