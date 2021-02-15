@@ -79,11 +79,11 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 
 		tracker := NewStatusCodeTracker(w)
 
-		next.ServeHTTP(tracker, r.WithContext(opentracing.ContextWithSpan(r.Context(), span)))
+		next.ServeHTTP(tracker.Writer(), r.WithContext(opentracing.ContextWithSpan(r.Context(), span)))
 
 		ext.HTTPStatusCode.Set(span, tracker.OpentracingCode())
 
-		if tracker.code >= http.StatusBadRequest {
+		if tracker.status >= http.StatusBadRequest {
 			metrics.HTTPFailedInputReqCounter.Inc()
 			ext.Error.Set(span, true)
 		} else {
@@ -98,22 +98,4 @@ func (m *Middleware) defaultNameFunc(r *http.Request) string {
 
 func (m *Middleware) defaultFilterFunc(*http.Request) bool {
 	return true
-}
-
-type StatusCodeTracker struct {
-	http.ResponseWriter
-	code int
-}
-
-func NewStatusCodeTracker(w http.ResponseWriter) *StatusCodeTracker {
-	return &StatusCodeTracker{ResponseWriter: w, code: http.StatusOK}
-}
-
-func (t *StatusCodeTracker) WriteHeader(statusCode int) {
-	t.code = statusCode
-	t.ResponseWriter.WriteHeader(statusCode)
-}
-
-func (t *StatusCodeTracker) OpentracingCode() uint16 {
-	return uint16(t.code)
 }
