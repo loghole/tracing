@@ -99,7 +99,7 @@ func (l *TraceLogger) TraceID(ctx context.Context) string {
 func (l *TraceLogger) withSpanContext(ctx context.Context) *zap.SugaredLogger {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		if sc, ok := span.Context().(logtracer.SpanContext); ok {
-			return l.Desugar().With(
+			return l.SugaredLogger.Desugar().With(
 				zap.Stringer(traceKey, sc.TraceID()),
 				zap.Stringer(spanKey, sc.SpanID()),
 			).Sugar()

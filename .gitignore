@@ -65,3 +65,4 @@ out
 gen
 
 *.out
+.DS_Store
