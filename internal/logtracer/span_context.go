@@ -2,7 +2,7 @@ package logtracer
 
 import (
 	"github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go"
+	jaeger "github.com/uber/jaeger-client-go"
 )
 
 type SpanContext interface {

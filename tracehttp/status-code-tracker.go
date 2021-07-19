@@ -30,7 +30,7 @@ func (w *StatusCodeTracker) WriteHeader(status int) {
 // ResponseWriter and only implements the same combination of additional
 // interfaces as the original. This implementation is based on
 // https://github.com/felixge/httpsnoop.
-func (w *StatusCodeTracker) Writer() http.ResponseWriter { // nolint:funlen,gocognit,gocyclo // can be big.
+func (w *StatusCodeTracker) Writer() http.ResponseWriter { // nolint:funlen,gocognit,cyclop,gocyclo // can be big.
 	var (
 		hj, i0 = w.ResponseWriter.(http.Hijacker)
 		cn, i1 = w.ResponseWriter.(http.CloseNotifier) // nolint:staticcheck // need all interfaces.

@@ -1,17 +1,14 @@
 run:
-  tests: false
   skip-dirs:
-    - scripts
-    - internal/otgrpc # it's a copy of https://github.com/grpc-ecosystem/grpc-opentracing
+    - internal/otgrpc
+  tests: false
+  timeout: 5m
 linters:
   enable-all: true
   disable:
-    - nolintlint
-    - gci
-    - exhaustivestruct
     - wrapcheck
-service:
-  golangci-lint-version: 1.34.x
+    - exhaustivestruct
+  fast: false
 linters-settings:
   gocritic:
     enabled-tags:
@@ -20,3 +17,17 @@ linters-settings:
       - performance
       - diagnostic
       - opinionated
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+
+  gci:
+    local-prefixes: github.com/loghole/tracing
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - .WrapWithCode(
