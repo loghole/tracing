@@ -12,6 +12,6 @@ require (
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	go.uber.org/zap v1.18.1
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	google.golang.org/grpc v1.39.0
+	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
+	google.golang.org/grpc v1.39.1
 )
