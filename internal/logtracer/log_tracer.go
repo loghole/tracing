@@ -2,6 +2,7 @@ package logtracer
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -10,11 +11,32 @@ import (
 )
 
 type LogTracer struct {
-	rnd *rand.Rand
+	randomNumber func() uint64
 }
 
 func NewLogTracer() *LogTracer {
-	return &LogTracer{rnd: rand.New(rand.NewSource(time.Now().UnixNano()))} // nolint:gosec // need math rnd
+	logtracer := &LogTracer{}
+
+	seedGenerator := NewRand(time.Now().UnixNano())
+
+	pool := sync.Pool{
+		New: func() interface{} {
+			return rand.NewSource(seedGenerator.Int63())
+		},
+	}
+
+	logtracer.randomNumber = func() uint64 {
+		var (
+			generator = pool.Get().(rand.Source)
+			number    = uint64(generator.Int63())
+		)
+
+		pool.Put(generator)
+
+		return number
+	}
+
+	return logtracer
 }
 
 // StartSpan belongs to the Tracer interface.
@@ -58,11 +80,11 @@ func (t LogTracer) Extract(_, _ interface{}) (opentracing.SpanContext, error) {
 }
 
 func (t *LogTracer) generateTraceID() jaeger.TraceID {
-	return jaeger.TraceID{Low: t.rnd.Uint64()}
+	return jaeger.TraceID{Low: t.randomNumber()}
 }
 
 func (t *LogTracer) generateSpanID() jaeger.SpanID {
-	return jaeger.SpanID(t.rnd.Uint64())
+	return jaeger.SpanID(t.randomNumber())
 }
 
 type LogSpanContext struct {
