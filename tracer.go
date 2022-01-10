@@ -23,7 +23,7 @@ import (
 
 const _defaultTracerName = "github.com/loghole/tracing"
 
-type Configuration struct {
+type Configuration struct { // nolint:govet // not need.
 	ServiceName string
 	Disabled    bool
 	BatchSize   int
@@ -127,8 +127,8 @@ func (c *Tracer) NewSpan() SpanBuilder {
 type SpanBuilder struct {
 	name    string
 	tracer  trace.Tracer
-	options []trace.SpanStartOption
 	carrier propagation.TextMapCarrier
+	options []trace.SpanStartOption
 }
 
 func (b SpanBuilder) WithName(name string) SpanBuilder {

@@ -15,8 +15,8 @@ type spanWrapper struct {
 }
 
 type traceWrapper struct {
-	mu    sync.Mutex
 	spans map[trace.SpanID]spanWrapper
+	mu    sync.Mutex
 
 	parentSpanID trace.SpanID
 	isFinished   bool

@@ -134,32 +134,7 @@ func (s *Span) SetTag(key string, value interface{}) *Span {
 		return nil
 	}
 
-	switch val := value.(type) {
-	case bool:
-		s.span.SetAttributes(attribute.Bool(key, val))
-	case []bool:
-		s.span.SetAttributes(attribute.BoolSlice(key, val))
-	case int:
-		s.span.SetAttributes(attribute.Int(key, val))
-	case []int:
-		s.span.SetAttributes(attribute.IntSlice(key, val))
-	case int64:
-		s.span.SetAttributes(attribute.Int64(key, val))
-	case []int64:
-		s.span.SetAttributes(attribute.Int64Slice(key, val))
-	case float64:
-		s.span.SetAttributes(attribute.Float64(key, val))
-	case []float64:
-		s.span.SetAttributes(attribute.Float64Slice(key, val))
-	case string:
-		s.span.SetAttributes(attribute.String(key, val))
-	case []string:
-		s.span.SetAttributes(attribute.StringSlice(key, val))
-	case fmt.Stringer:
-		s.span.SetAttributes(attribute.Stringer(key, val))
-	default:
-		s.span.SetAttributes(attribute.String(key, fmt.Sprint(val)))
-	}
+	s.span.SetAttributes(attributeFromInterface(key, value))
 
 	return s
 }
@@ -177,4 +152,33 @@ func callerName() string {
 	list := strings.Split(f.Name(), "/")
 
 	return list[len(list)-1]
+}
+
+func attributeFromInterface(key string, value interface{}) attribute.KeyValue { // nolint:cyclop // it's ok.
+	switch val := value.(type) {
+	case bool:
+		return attribute.Bool(key, val)
+	case []bool:
+		return attribute.BoolSlice(key, val)
+	case int:
+		return attribute.Int(key, val)
+	case []int:
+		return attribute.IntSlice(key, val)
+	case int64:
+		return attribute.Int64(key, val)
+	case []int64:
+		return attribute.Int64Slice(key, val)
+	case float64:
+		return attribute.Float64(key, val)
+	case []float64:
+		return attribute.Float64Slice(key, val)
+	case string:
+		return attribute.String(key, val)
+	case []string:
+		return attribute.StringSlice(key, val)
+	case fmt.Stringer:
+		return attribute.Stringer(key, val)
+	default:
+		return attribute.String(key, fmt.Sprint(val))
+	}
 }

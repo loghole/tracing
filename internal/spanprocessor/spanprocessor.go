@@ -9,12 +9,11 @@ import (
 )
 
 type Sampled struct {
-	mu sync.Mutex
-
-	sampler   tracesdk.Sampler
 	processor tracesdk.SpanProcessor
+	sampler   tracesdk.Sampler
 
 	traces map[trace.TraceID]*traceWrapper
+	mu     sync.Mutex
 }
 
 func NewSampled(
@@ -100,25 +99,6 @@ func (p *Sampled) getTrace(traceID trace.TraceID) (*traceWrapper, bool) {
 	tr, ok := p.traces[traceID]
 
 	return tr, ok
-}
-
-func (p *Sampled) addTrace(parent context.Context, span tracesdk.ReadWriteSpan) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	spanCtx := span.SpanContext()
-
-	tr, ok := p.traces[spanCtx.TraceID()]
-	if !ok {
-		tr = &traceWrapper{
-			parentSpanID: spanCtx.SpanID(),
-			spans:        make(map[trace.SpanID]spanWrapper),
-		}
-
-		p.traces[spanCtx.TraceID()] = tr
-	}
-
-	tr.storeSpan(parent, span)
 }
 
 func (p *Sampled) send(
