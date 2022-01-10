@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	jaegerURL  = "127.0.0.1:6831"
+	jaegerURL = "127.0.0.1:6831"
 )
 
 func main() {
@@ -52,10 +52,10 @@ func NewBaseExample(logger tracelog.Logger) *BaseExample {
 }
 
 func (e *BaseExample) CreateSpanBase() {
-	span, ctx := e.tracer.NewSpan().
+	ctx, span := e.tracer.NewSpan().
 		WithName("ExampleCreateSpanBase").
-		BuildWithContext(context.Background())
-	defer span.Finish()
+		StartWithContext(context.Background())
+	defer span.End()
 
 	e.logger.Info(ctx, "ExampleCreateSpanBase info message")
 
@@ -63,11 +63,11 @@ func (e *BaseExample) CreateSpanBase() {
 }
 
 func (e *BaseExample) CreateSpanWithHTTP(w http.ResponseWriter, r *http.Request) {
-	span, ctx := e.tracer.NewSpan().
+	ctx, span := e.tracer.NewSpan().
 		WithName("ExampleCreateSpanWithHTTP").
 		ExtractHeaders(r.Header).
-		BuildWithContext(context.Background())
-	defer span.Finish()
+		StartWithContext(context.Background())
+	defer span.End()
 
 	e.logger.Info(ctx, "ExampleCreateSpanWithHTTP info message")
 
@@ -91,4 +91,3 @@ func (e *BaseExample) ChildSpanFromContext(ctx context.Context) {
 func (e *BaseExample) Close() error {
 	return e.tracer.Close()
 }
-

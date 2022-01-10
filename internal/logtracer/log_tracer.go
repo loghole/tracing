@@ -1,20 +1,24 @@
 package logtracer
 
 import (
+	"context"
+	"encoding/binary"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
-	jaeger "github.com/uber/jaeger-client-go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
-type LogTracer struct {
-	randomNumber func() uint64
+type LogTraceProvider struct{}
+
+func NewProvider() trace.TracerProvider {
+	return &LogTraceProvider{}
 }
 
-func NewLogTracer() *LogTracer {
+func (p *LogTraceProvider) Tracer(_ string, _ ...trace.TracerOption) trace.Tracer {
 	logtracer := &LogTracer{}
 
 	seedGenerator := NewRand(time.Now().UnixNano())
@@ -39,84 +43,56 @@ func NewLogTracer() *LogTracer {
 	return logtracer
 }
 
-// StartSpan belongs to the Tracer interface.
-func (t *LogTracer) StartSpan(_ string, opts ...opentracing.StartSpanOption) opentracing.Span {
-	s := &opentracing.StartSpanOptions{}
+type LogTracer struct {
+	randomNumber func() uint64
+}
 
-	for _, opt := range opts {
-		opt.Apply(s)
+func (t *LogTracer) Start(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
+	var result *LogSpan
 
-		if len(s.References) > 0 {
-			break
-		}
+	if span, ok := interface{}(trace.SpanFromContext(ctx)).(*LogSpan); ok {
+		result = &LogSpan{traceID: span.traceID, spanID: t.generateSpanID(), tracer: t}
+	} else {
+		result = &LogSpan{traceID: t.generateTraceID(), spanID: t.generateSpanID(), tracer: t}
 	}
 
-	for _, ref := range s.References {
-		if val, ok := ref.ReferencedContext.(*LogSpanContext); ok {
-			return &LogSpan{traceID: val.span.traceID, spanID: t.generateSpanID(), tracer: t}
-		}
-	}
-
-	return &LogSpan{traceID: t.generateTraceID(), spanID: t.generateSpanID(), tracer: t}
+	return trace.ContextWithSpan(ctx, result), result
 }
 
-// Inject belongs to the Tracer interface.
-func (t *LogTracer) Inject(sp opentracing.SpanContext, _, carrier interface{}) error {
-	m, ok := carrier.(opentracing.TextMapCarrier)
-	if !ok {
-		return nil
-	}
+func (t *LogTracer) generateTraceID() trace.TraceID {
+	var id trace.TraceID
 
-	if val, ok := sp.(*LogSpanContext); ok {
-		m[jaeger.TraceContextHeaderName] = val.span.spanID.String()
-	}
+	binary.LittleEndian.PutUint64(id[:8], t.randomNumber())
+	binary.LittleEndian.PutUint64(id[8:], t.randomNumber())
 
-	return nil
+	return id
 }
 
-// Extract belongs to the Tracer interface.
-func (t LogTracer) Extract(_, _ interface{}) (opentracing.SpanContext, error) {
-	return nil, opentracing.ErrSpanContextNotFound
-}
+func (t *LogTracer) generateSpanID() trace.SpanID {
+	var id trace.SpanID
 
-func (t *LogTracer) generateTraceID() jaeger.TraceID {
-	return jaeger.TraceID{Low: t.randomNumber()}
-}
+	binary.LittleEndian.PutUint64(id[:], t.randomNumber())
 
-func (t *LogTracer) generateSpanID() jaeger.SpanID {
-	return jaeger.SpanID(t.randomNumber())
-}
-
-type LogSpanContext struct {
-	span LogSpan
-}
-
-func (n *LogSpanContext) ForeachBaggageItem(_ func(k, v string) bool) {}
-
-func (n *LogSpanContext) TraceID() jaeger.TraceID {
-	return n.span.traceID
-}
-
-func (n *LogSpanContext) SpanID() jaeger.SpanID {
-	return n.span.spanID
+	return id
 }
 
 type LogSpan struct {
 	tracer  *LogTracer
-	traceID jaeger.TraceID
-	spanID  jaeger.SpanID
+	traceID trace.TraceID
+	spanID  trace.SpanID
 }
 
-func (s *LogSpan) Context() opentracing.SpanContext                { return &LogSpanContext{span: *s} }
-func (s *LogSpan) SetBaggageItem(_, _ string) opentracing.Span     { return s }
-func (s *LogSpan) BaggageItem(_ string) string                     { return "" }
-func (s *LogSpan) SetTag(_ string, _ interface{}) opentracing.Span { return s }
-func (s *LogSpan) LogFields(_ ...log.Field)                        {}
-func (s *LogSpan) LogKV(_ ...interface{})                          {}
-func (s *LogSpan) Finish()                                         {}
-func (s *LogSpan) FinishWithOptions(_ opentracing.FinishOptions)   {}
-func (s *LogSpan) SetOperationName(_ string) opentracing.Span      { return s }
-func (s *LogSpan) Tracer() opentracing.Tracer                      { return s.tracer }
-func (s *LogSpan) LogEvent(_ string)                               {}
-func (s *LogSpan) LogEventWithPayload(_ string, _ interface{})     {}
-func (s *LogSpan) Log(_ opentracing.LogData)                       {}
+func (s *LogSpan) End(_ ...trace.SpanEndOption)                {}
+func (s *LogSpan) AddEvent(_ string, _ ...trace.EventOption)   {}
+func (s *LogSpan) IsRecording() bool                           { return false }
+func (s *LogSpan) RecordError(_ error, _ ...trace.EventOption) {}
+func (s *LogSpan) SetStatus(_ codes.Code, _ string)            {}
+func (s *LogSpan) SetName(_ string)                            {}
+func (s *LogSpan) SetAttributes(_ ...attribute.KeyValue)       {}
+func (s *LogSpan) TracerProvider() trace.TracerProvider        { return trace.NewNoopTracerProvider() }
+
+func (s *LogSpan) SpanContext() trace.SpanContext {
+	return trace.SpanContext{}.
+		WithTraceID(s.traceID).
+		WithSpanID(s.spanID)
+}

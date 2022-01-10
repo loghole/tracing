@@ -1,75 +1,134 @@
 package tracing
 
 import (
-	"bytes"
 	"context"
-	"io"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go/config"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/loghole/tracing/internal/logtracer"
+	"github.com/loghole/tracing/internal/spanprocessor"
 )
 
-type Tracer struct {
-	opentracing.Tracer
-	closer io.Closer
+const _defaultTracerName = "github.com/loghole/tracing"
+
+type Configuration struct {
+	ServiceName string
+	Disabled    bool
+	BatchSize   int
+
+	EndpointOption       jaeger.EndpointOption
+	Sampler              tracesdk.Sampler
+	Attributes           attribute.KeyValue
+	SpanProcessorOptions []tracesdk.BatchSpanProcessorOption
 }
 
-func DefaultConfiguration(service, addr string) *config.Configuration {
-	configuration := &config.Configuration{
+type Tracer struct {
+	provider trace.TracerProvider
+	tracer   trace.Tracer
+
+	shutdown func(ctx context.Context) error
+}
+
+func DefaultConfiguration(service, addr string) *Configuration {
+	configuration := &Configuration{
 		ServiceName: service,
 		Disabled:    addr == "",
-		Sampler:     &config.SamplerConfig{Type: "const", Param: 1},
-		Reporter:    &config.ReporterConfig{BufferFlushInterval: time.Second},
+		Sampler:     tracesdk.AlwaysSample(),
 	}
 
 	switch {
 	case strings.HasPrefix(addr, "http"):
-		configuration.Reporter.CollectorEndpoint = addr
+		configuration.EndpointOption = jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(addr))
 	default:
-		configuration.Reporter.LocalAgentHostPort = addr
+		if u, err := url.Parse(addr); err == nil {
+			configuration.EndpointOption = jaeger.WithAgentEndpoint(
+				jaeger.WithAgentHost(u.Host),
+				jaeger.WithAgentPort(u.Port()),
+			)
+		}
 	}
 
 	return configuration
 }
 
-func NewTracer(configuration *config.Configuration, options ...config.Option) (*Tracer, error) {
-	tracer, closer, err := configuration.NewTracer(options...)
+func NewTracer(configuration *Configuration) (*Tracer, error) {
+	if configuration.Disabled {
+		var (
+			provider = logtracer.NewProvider()
+			tracer   = provider.Tracer(_defaultTracerName)
+		)
+
+		otel.SetTracerProvider(provider)
+
+		return &Tracer{provider: provider, tracer: tracer}, nil
+	}
+
+	exporter, err := jaeger.New(configuration.EndpointOption)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init jaeger exporter: %w", err)
 	}
 
-	if _, ok := tracer.(*opentracing.NoopTracer); ok {
-		return &Tracer{Tracer: logtracer.NewLogTracer(), closer: closer}, nil
+	processor := spanprocessor.NewSampled(
+		tracesdk.NewBatchSpanProcessor(exporter, configuration.SpanProcessorOptions...),
+		configuration.Sampler,
+	)
+
+	provider := tracesdk.NewTracerProvider(
+		tracesdk.WithSpanProcessor(processor),
+		tracesdk.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String(configuration.ServiceName),
+		)),
+		tracesdk.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			configuration.Attributes,
+		)),
+	)
+
+	otel.SetTracerProvider(provider)
+
+	tracer := &Tracer{
+		provider: provider,
+		tracer:   provider.Tracer(_defaultTracerName),
 	}
 
-	return &Tracer{Tracer: tracer, closer: closer}, nil
-}
-
-func (c *Tracer) OpenTracer() opentracing.Tracer {
-	return c.Tracer
+	return tracer, nil
 }
 
 func (c *Tracer) Close() error {
-	if c.closer == nil {
+	if c.shutdown == nil {
 		return nil
 	}
 
-	return c.closer.Close()
+	const timeout = time.Second * 10
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return c.shutdown(ctx)
 }
 
 func (c *Tracer) NewSpan() SpanBuilder {
-	return SpanBuilder{tracer: c.Tracer}
+	return SpanBuilder{tracer: c.tracer}
 }
 
 type SpanBuilder struct {
 	name    string
-	tracer  opentracing.Tracer
-	options []opentracing.StartSpanOption
+	tracer  trace.Tracer
+	options []trace.SpanStartOption
+	carrier propagation.TextMapCarrier
 }
 
 func (b SpanBuilder) WithName(name string) SpanBuilder {
@@ -83,10 +142,7 @@ func (b SpanBuilder) ExtractMap(carrier map[string]string) SpanBuilder {
 		return b
 	}
 
-	spanCtx, err := b.tracer.Extract(opentracing.TextMap, opentracing.TextMapCarrier(carrier))
-	if err == nil {
-		b.options = append(b.options, opentracing.FollowsFrom(spanCtx))
-	}
+	b.carrier = propagation.MapCarrier(carrier)
 
 	return b
 }
@@ -96,10 +152,7 @@ func (b SpanBuilder) ExtractBinary(carrier []byte) SpanBuilder {
 		return b
 	}
 
-	spanCtx, err := b.tracer.Extract(opentracing.Binary, bytes.NewReader(carrier))
-	if err == nil {
-		b.options = append(b.options, opentracing.FollowsFrom(spanCtx))
-	}
+	// TODO: implement me.
 
 	return b
 }
@@ -109,28 +162,27 @@ func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 		return b
 	}
 
-	spanCtx, err := b.tracer.Extract(opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(carrier))
-	if err == nil {
-		b.options = append(b.options, opentracing.FollowsFrom(spanCtx))
-	}
+	b.carrier = propagation.HeaderCarrier(carrier)
 
 	return b
 }
 
-func (b SpanBuilder) Build() opentracing.Span {
+func (b SpanBuilder) Start(ctx context.Context) *Span {
+	_, span := b.StartWithContext(ctx)
+
+	return span
+}
+
+func (b SpanBuilder) StartWithContext(ctx context.Context) (context.Context, *Span) {
 	if b.name == "" {
 		b.name = callerName()
 	}
 
-	return &Span{span: b.tracer.StartSpan(b.name, b.options...), tracer: b.tracer}
-}
-
-func (b SpanBuilder) BuildWithContext(ctx context.Context) (opentracing.Span, context.Context) {
-	span := b.Build()
-
-	if b.name == "" {
-		span.SetOperationName(callerName())
+	if b.carrier != nil {
+		ctx = new(propagation.TraceContext).Extract(ctx, b.carrier)
 	}
 
-	return span, opentracing.ContextWithSpan(ctx, span)
+	ctx, span := b.tracer.Start(ctx, b.name, b.options...)
+
+	return ctx, &Span{span: span, tracer: b.tracer}
 }

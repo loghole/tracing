@@ -76,7 +76,7 @@ func NewClientExample(logger tracelog.Logger) *ClientExample {
 	}
 
 	return &ClientExample{
-		client: tracehttp.NewClient(tracer, http.DefaultClient, false),
+		client: tracehttp.NewClient(tracer, http.DefaultClient),
 		tracer: tracer,
 		logger: logger,
 		close:  make(chan struct{}),
@@ -114,8 +114,8 @@ func (e *ClientExample) Stop() {
 }
 
 func (e *ClientExample) SendRequest(url string) {
-	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
-	defer span.Finish()
+	ctx, span := e.tracer.NewSpan().StartWithContext(context.Background())
+	defer span.End()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

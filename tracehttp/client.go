@@ -7,33 +7,22 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
-
+	"github.com/loghole/tracing"
 	"github.com/loghole/tracing/internal/metrics"
 )
 
 type Client struct {
-	client   *http.Client
-	tracer   opentracing.Tracer
-	extended bool
+	client *http.Client
+	tracer *tracing.Tracer
 }
 
-func NewClient(tracer opentracing.Tracer, client *http.Client, extended bool) *Client {
-	client.Transport = NewTransport(tracer, client.Transport, extended)
+func NewClient(tracer *tracing.Tracer, client *http.Client) *Client {
+	client.Transport = NewTransport(tracer, client.Transport)
 
-	return &Client{client: client, tracer: tracer, extended: extended}
+	return &Client{client: client, tracer: tracer}
 }
 
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	if c.extended {
-		var ht *nethttp.Tracer
-
-		req, ht = nethttp.TraceRequest(c.tracer, req)
-
-		defer ht.Finish()
-	}
-
 	resp, err := c.client.Do(req)
 	if err != nil || resp.StatusCode >= http.StatusBadRequest {
 		metrics.HTTPFailedOutputReqCounter.Inc()

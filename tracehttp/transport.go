@@ -1,22 +1,22 @@
 package tracehttp
 
 import (
-	"log"
 	"net/http"
 	"strings"
 
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+
+	"github.com/loghole/tracing"
 )
 
 type Transport struct {
-	tracer   opentracing.Tracer
+	tracer   *tracing.Tracer
 	base     http.RoundTripper
 	extended http.RoundTripper
 }
 
-func NewTransport(tracer opentracing.Tracer, roundTripper http.RoundTripper, extended bool) *Transport {
+func NewTransport(tracer *tracing.Tracer, roundTripper http.RoundTripper) *Transport {
 	if roundTripper == nil {
 		roundTripper = http.DefaultTransport
 	}
@@ -24,10 +24,6 @@ func NewTransport(tracer opentracing.Tracer, roundTripper http.RoundTripper, ext
 	transport := &Transport{
 		tracer: tracer,
 		base:   roundTripper,
-	}
-
-	if extended {
-		transport.extended = &nethttp.Transport{RoundTripper: roundTripper}
 	}
 
 	return transport
@@ -39,33 +35,25 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 		return t.extended.RoundTrip(req)
 	}
 
-	var parentCtx opentracing.SpanContext
+	ctx, span := t.tracer.NewSpan().WithName(t.defaultNameFunc(req)).StartWithContext(req.Context())
+	defer span.End()
 
-	if parent := opentracing.SpanFromContext(req.Context()); parent != nil {
-		parentCtx = parent.Context()
-	}
+	span.SetAttributes(
+		semconv.HTTPMethodKey.String(req.Method),
+		semconv.HTTPURLKey.String(req.URL.String()),
+		attribute.String("component", ComponentName),
+	)
 
-	span := t.tracer.StartSpan(t.defaultNameFunc(req), opentracing.ChildOf(parentCtx))
-	defer span.Finish()
+	tracing.InjectHeaders(ctx, req.Header)
 
-	ext.Component.Set(span, ComponentName)
-	ext.SpanKindRPCClient.Set(span)
-	ext.HTTPMethod.Set(span, req.Method)
-	ext.HTTPUrl.Set(span, req.URL.String())
-
-	err = span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.Header))
+	resp, err = t.base.RoundTrip(req.WithContext(ctx))
 	if err != nil {
-		log.Printf("[error] inject headers failed: %v", err)
-	}
-
-	resp, err = t.base.RoundTrip(req.WithContext(opentracing.ContextWithSpan(req.Context(), span)))
-	if err != nil {
-		ext.Error.Set(span, true)
+		span.SetAttributes(attribute.Bool("error", true))
 
 		return resp, err
 	}
 
-	ext.HTTPStatusCode.Set(span, uint16(resp.StatusCode))
+	span.SetAttributes(semconv.HTTPStatusCodeKey.Int(resp.StatusCode))
 
 	return resp, nil
 }
