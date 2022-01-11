@@ -19,8 +19,19 @@ type Configuration struct { // nolint:govet // not need.
 	Disabled    bool
 
 	Sampler              tracesdk.Sampler
-	Attributes           attribute.KeyValue
+	Attributes           []attribute.KeyValue
 	SpanProcessorOptions []tracesdk.BatchSpanProcessorOption
+}
+
+func DefaultConfiguration(service, addr string) *Configuration {
+	configuration := &Configuration{
+		ServiceName: service,
+		Addr:        addr,
+		Disabled:    addr == "",
+		Sampler:     tracesdk.AlwaysSample(),
+	}
+
+	return configuration
 }
 
 func (c *Configuration) validate() error {
@@ -45,7 +56,7 @@ func (c *Configuration) endpoint() (jaeger.EndpointOption, error) {
 	case "http", "https":
 		return jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(u.String())), nil
 	case "udp":
-		return jaeger.WithAgentEndpoint(jaeger.WithAgentHost(u.Host), jaeger.WithAgentPort(u.Port())), nil
+		return jaeger.WithAgentEndpoint(jaeger.WithAgentHost(u.Hostname()), jaeger.WithAgentPort(u.Port())), nil
 	default:
 		return nil, fmt.Errorf("%w: unknown addr scheme, supported [http, https, udp]", ErrInvalidConfiguration)
 	}

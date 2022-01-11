@@ -27,17 +27,6 @@ type Tracer struct {
 	shutdown func(ctx context.Context) error
 }
 
-func DefaultConfiguration(service, addr string) *Configuration {
-	configuration := &Configuration{
-		ServiceName: service,
-		Addr:        addr,
-		Disabled:    addr == "",
-		Sampler:     tracesdk.AlwaysSample(),
-	}
-
-	return configuration
-}
-
 func NewTracer(configuration *Configuration) (*Tracer, error) {
 	if err := configuration.validate(); err != nil {
 		return nil, err
@@ -73,11 +62,7 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 		tracesdk.WithSpanProcessor(processor),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(configuration.ServiceName),
-		)),
-		tracesdk.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			configuration.Attributes,
+			append(configuration.Attributes, semconv.ServiceNameKey.String(configuration.ServiceName))...,
 		)),
 	)
 
@@ -127,16 +112,6 @@ func (b SpanBuilder) ExtractMap(carrier map[string]string) SpanBuilder {
 	}
 
 	b.carrier = propagation.MapCarrier(carrier)
-
-	return b
-}
-
-func (b SpanBuilder) ExtractBinary(carrier []byte) SpanBuilder {
-	if carrier == nil {
-		return b
-	}
-
-	// TODO: implement me.
 
 	return b
 }
