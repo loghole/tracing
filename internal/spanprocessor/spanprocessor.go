@@ -2,6 +2,7 @@ package spanprocessor
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -37,6 +38,8 @@ func (p *Sampled) OnStart(parent context.Context, span tracesdk.ReadWriteSpan) {
 func (p *Sampled) OnEnd(s tracesdk.ReadOnlySpan) {
 	tr, ok := p.getTrace(s.SpanContext().TraceID())
 	if !ok {
+		log.Println("trace not found: ", s.SpanContext().TraceID())
+
 		return
 	}
 
@@ -85,6 +88,7 @@ func (p *Sampled) onStart(parent context.Context, span tracesdk.ReadWriteSpan) {
 		val.storeSpan(parent, span)
 	} else {
 		p.traces[spanCtx.TraceID()] = &traceWrapper{
+			parentSpanID: spanCtx.SpanID(),
 			spans: map[trace.SpanID]spanWrapper{
 				spanCtx.SpanID(): {span: span, context: parent},
 			},

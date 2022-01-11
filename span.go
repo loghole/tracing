@@ -40,7 +40,7 @@ func (s *Span) Finish() {
 // is called. Therefore, updates to the Span are not allowed after this
 // method has been called.
 func (s *Span) End(options ...trace.SpanEndOption) {
-	if s.span == nil && !s.span.IsRecording() {
+	if s.span == nil {
 		return
 	}
 

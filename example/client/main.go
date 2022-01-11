@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -40,7 +39,7 @@ func main() {
 	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		logger.Info(ctx, "start server")
+		logger.Info(ctx, "start client")
 
 		return client.Run()
 	})
@@ -133,12 +132,5 @@ func (e *ClientExample) SendRequest(url string) {
 
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		e.logger.Errorf(ctx, "ReadAll: %v", err)
-
-		return
-	}
-
-	e.logger.With("text", string(data)).Infof(ctx, "success")
+	e.logger.Infof(ctx, "success")
 }
