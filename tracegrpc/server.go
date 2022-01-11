@@ -4,11 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 
 	"github.com/loghole/tracing"
 	"github.com/loghole/tracing/internal/metrics"
@@ -36,23 +33,14 @@ func UnaryServerInterceptor(tracer *tracing.Tracer) grpc.UnaryServerInterceptor 
 			StartWithContext(ctx)
 		defer span.End()
 
-		span.SetAttributes(
-			semconv.RPCMethodKey.String(info.FullMethod),
-			attribute.String("component", _componentName),
-		)
-
 		resp, err = handler(ctx, req)
 		if err != nil {
 			metrics.GRPCFailedInputReqCounter.Inc()
-
-			if st, ok := status.FromError(err); ok {
-				span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())))
-			}
-
-			span.SetAttributes(attribute.Bool("error", true))
 		} else {
 			metrics.GRPCSuccessInputReqCounter.Inc()
 		}
+
+		setAttributes(span, info.FullMethod, err)
 
 		return resp, err
 	}
@@ -77,15 +65,11 @@ func StreamServerInterceptor(tracer *tracing.Tracer) grpc.StreamServerIntercepto
 		err := handler(srv, ss)
 		if err != nil {
 			metrics.GRPCFailedInputReqCounter.Inc()
-
-			if st, ok := status.FromError(err); ok {
-				span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())))
-			}
-
-			span.SetAttributes(attribute.Bool("error", true))
 		} else {
 			metrics.GRPCSuccessInputReqCounter.Inc()
 		}
+
+		setAttributes(span, info.FullMethod, err)
 
 		return err
 	}

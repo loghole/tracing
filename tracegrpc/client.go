@@ -65,15 +65,11 @@ func UnaryClientInterceptor(tracer *tracing.Tracer) grpc.UnaryClientInterceptor 
 		err := invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
 		if err != nil {
 			metrics.GRPCFailedOutputReqCounter.Inc()
-
-			if st, ok := status.FromError(err); ok {
-				span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())))
-			}
-
-			span.SetAttributes(attribute.Bool("error", true))
 		} else {
 			metrics.GRPCSuccessOutputReqCounter.Inc()
 		}
+
+		setAttributes(span, method, err)
 
 		return err
 	}
@@ -97,4 +93,16 @@ func StreamClientInterceptor() grpc.StreamClientInterceptor {
 
 		return stream, err
 	}
+}
+
+func setAttributes(span *tracing.Span, method string, err error) {
+	st, _ := status.FromError(err)
+
+	span.SetAttributes(
+		semconv.RPCSystemKey.String("GRPC"),
+		semconv.RPCMethodKey.String(method),
+		semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())),
+		attribute.Bool("error", err != nil),
+		attribute.String("component", _componentName),
+	)
 }
