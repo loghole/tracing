@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	jaegerURL = "127.0.0.1:6831"
+	jaegerURL = "udp://127.0.0.1:6831"
 )
 
 func main() {

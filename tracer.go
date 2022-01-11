@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,12 +24,14 @@ import (
 
 const _defaultTracerName = "github.com/loghole/tracing"
 
+var ErrInvalidConfiguration = errors.New("invalid configuration")
+
 type Configuration struct { // nolint:govet // not need.
 	ServiceName string
+	Addr        string
 	Disabled    bool
 	BatchSize   int
 
-	EndpointOption       jaeger.EndpointOption
 	Sampler              tracesdk.Sampler
 	Attributes           attribute.KeyValue
 	SpanProcessorOptions []tracesdk.BatchSpanProcessorOption
@@ -44,20 +47,9 @@ type Tracer struct {
 func DefaultConfiguration(service, addr string) *Configuration {
 	configuration := &Configuration{
 		ServiceName: service,
+		Addr:        addr,
 		Disabled:    addr == "",
 		Sampler:     tracesdk.AlwaysSample(),
-	}
-
-	switch {
-	case strings.HasPrefix(addr, "http"):
-		configuration.EndpointOption = jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(addr))
-	default:
-		if u, err := url.Parse(addr); err == nil {
-			configuration.EndpointOption = jaeger.WithAgentEndpoint(
-				jaeger.WithAgentHost(u.Host),
-				jaeger.WithAgentPort(u.Port()),
-			)
-		}
 	}
 
 	return configuration
@@ -75,7 +67,26 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 		return &Tracer{provider: provider, tracer: tracer}, nil
 	}
 
-	exporter, err := jaeger.New(configuration.EndpointOption)
+	var endpoint jaeger.EndpointOption
+
+	u, err := url.Parse(configuration.Addr)
+	if err != nil {
+		return nil, fmt.Errorf("parse configuration addr: %w", err)
+	}
+
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+		endpoint = jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(u.String()))
+	case "udp":
+		endpoint = jaeger.WithAgentEndpoint(
+			jaeger.WithAgentHost(u.Host),
+			jaeger.WithAgentPort(u.Port()),
+		)
+	default:
+		return nil, fmt.Errorf("%w: unknown addr scheme, supported [http, https, udp]", ErrInvalidConfiguration)
+	}
+
+	exporter, err := jaeger.New(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("init jaeger exporter: %w", err)
 	}
