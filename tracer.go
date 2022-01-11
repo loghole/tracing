@@ -2,15 +2,11 @@ package tracing
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -23,19 +19,6 @@ import (
 )
 
 const _defaultTracerName = "github.com/loghole/tracing"
-
-var ErrInvalidConfiguration = errors.New("invalid configuration")
-
-type Configuration struct { // nolint:govet // not need.
-	ServiceName string
-	Addr        string
-	Disabled    bool
-	BatchSize   int
-
-	Sampler              tracesdk.Sampler
-	Attributes           attribute.KeyValue
-	SpanProcessorOptions []tracesdk.BatchSpanProcessorOption
-}
 
 type Tracer struct {
 	provider trace.TracerProvider
@@ -56,6 +39,10 @@ func DefaultConfiguration(service, addr string) *Configuration {
 }
 
 func NewTracer(configuration *Configuration) (*Tracer, error) {
+	if err := configuration.validate(); err != nil {
+		return nil, err
+	}
+
 	if configuration.Disabled {
 		var (
 			provider = logtracer.NewProvider()
@@ -67,23 +54,9 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 		return &Tracer{provider: provider, tracer: tracer}, nil
 	}
 
-	var endpoint jaeger.EndpointOption
-
-	u, err := url.Parse(configuration.Addr)
+	endpoint, err := configuration.endpoint()
 	if err != nil {
-		return nil, fmt.Errorf("parse configuration addr: %w", err)
-	}
-
-	switch strings.ToLower(u.Scheme) {
-	case "http", "https":
-		endpoint = jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(u.String()))
-	case "udp":
-		endpoint = jaeger.WithAgentEndpoint(
-			jaeger.WithAgentHost(u.Host),
-			jaeger.WithAgentPort(u.Port()),
-		)
-	default:
-		return nil, fmt.Errorf("%w: unknown addr scheme, supported [http, https, udp]", ErrInvalidConfiguration)
+		return nil, err
 	}
 
 	exporter, err := jaeger.New(endpoint)
