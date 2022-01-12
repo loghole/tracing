@@ -2,14 +2,13 @@ package tracelog
 
 import (
 	"context"
+	"encoding/json"
 
-	jsoniter "github.com/json-iterator/go"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/loghole/tracing/internal/logtracer"
 	"github.com/loghole/tracing/internal/metrics"
 )
 
@@ -85,7 +84,7 @@ func (l TraceLogger) With(args ...interface{}) Logger {
 func (l *TraceLogger) WithJSON(key string, b []byte) Logger {
 	var obj interface{}
 
-	if err := jsoniter.Unmarshal(b, &obj); err != nil {
+	if err := json.Unmarshal(b, &obj); err != nil {
 		return l.With(key, "unmarshal failed", "failed_json", string(b))
 	}
 
@@ -97,31 +96,27 @@ func (l *TraceLogger) TraceID(ctx context.Context) string {
 }
 
 func (l *TraceLogger) withSpanContext(ctx context.Context) *zap.SugaredLogger {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		if sc, ok := span.Context().(logtracer.SpanContext); ok {
-			return l.SugaredLogger.Desugar().With(
-				zap.Stringer(traceKey, sc.TraceID()),
-				zap.Stringer(spanKey, sc.SpanID()),
-			).Sugar()
-		}
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		return l.SugaredLogger.Desugar().With(
+			zap.Stringer(traceKey, sc.TraceID()),
+			zap.Stringer(spanKey, sc.SpanID()),
+		).Sugar()
 	}
 
 	return l.SugaredLogger
 }
 
 func TraceID(ctx context.Context) string {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		if sc, ok := span.Context().(logtracer.SpanContext); ok {
-			return sc.TraceID().String()
-		}
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		return sc.TraceID().String()
 	}
 
 	return ""
 }
 
 func setErrorTag(ctx context.Context) {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		ext.Error.Set(span, true)
+	if span := trace.SpanFromContext(ctx); span != nil {
+		span.SetAttributes(attribute.Bool("error", true))
 	}
 }
 

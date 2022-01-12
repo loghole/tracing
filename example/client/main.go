@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -20,7 +19,7 @@ import (
 )
 
 const (
-	jaegerURL  = "127.0.0.1:6831"
+	jaegerURL  = "udp://127.0.0.1:6831"
 	serverAddr = "127.0.0.1:38572"
 )
 
@@ -40,7 +39,7 @@ func main() {
 	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		logger.Info(ctx, "start server")
+		logger.Info(ctx, "start client")
 
 		return client.Run()
 	})
@@ -76,7 +75,7 @@ func NewClientExample(logger tracelog.Logger) *ClientExample {
 	}
 
 	return &ClientExample{
-		client: tracehttp.NewClient(tracer, http.DefaultClient, false),
+		client: tracehttp.NewClient(tracer, http.DefaultClient),
 		tracer: tracer,
 		logger: logger,
 		close:  make(chan struct{}),
@@ -114,8 +113,8 @@ func (e *ClientExample) Stop() {
 }
 
 func (e *ClientExample) SendRequest(url string) {
-	span, ctx := e.tracer.NewSpan().BuildWithContext(context.Background())
-	defer span.Finish()
+	ctx, span := e.tracer.NewSpan().StartWithContext(context.Background())
+	defer span.End()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -133,12 +132,5 @@ func (e *ClientExample) SendRequest(url string) {
 
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		e.logger.Errorf(ctx, "ReadAll: %v", err)
-
-		return
-	}
-
-	e.logger.With("text", string(data)).Infof(ctx, "success")
+	e.logger.Infof(ctx, "success")
 }

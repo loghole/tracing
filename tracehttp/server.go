@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 
+	"github.com/loghole/tracing"
 	"github.com/loghole/tracing/internal/metrics"
 )
 
@@ -32,11 +33,11 @@ type Options struct {
 }
 
 type Middleware struct {
-	tracer  opentracing.Tracer
+	tracer  *tracing.Tracer
 	options *Options
 }
 
-func NewMiddleware(tracer opentracing.Tracer, options ...Option) *Middleware {
+func NewMiddleware(tracer *tracing.Tracer, options ...Option) *Middleware {
 	middleware := &Middleware{tracer: tracer, options: &Options{}}
 
 	for _, option := range options {
@@ -54,7 +55,7 @@ func NewMiddleware(tracer opentracing.Tracer, options ...Option) *Middleware {
 	return middleware
 }
 
-func Handler(tracer opentracing.Tracer, options ...Option) func(next http.Handler) http.Handler {
+func Handler(tracer *tracing.Tracer, options ...Option) func(next http.Handler) http.Handler {
 	m := NewMiddleware(tracer, options...)
 
 	return m.Middleware
@@ -68,24 +69,28 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		spanCtx, _ := m.tracer.Extract(opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(r.Header))
+		ctx, span := m.tracer.
+			NewSpan().
+			WithName(m.options.NameFunc(r)).
+			ExtractHeaders(r.Header).
+			StartWithContext(r.Context())
+		defer span.End()
 
-		span := m.tracer.StartSpan(m.options.NameFunc(r), ext.RPCServerOption(spanCtx))
-		defer span.Finish()
-
-		ext.Component.Set(span, ComponentName)
-		ext.HTTPMethod.Set(span, r.Method)
-		ext.HTTPUrl.Set(span, r.URL.String())
+		span.SetAttributes(
+			semconv.HTTPMethodKey.String(r.Method),
+			semconv.HTTPURLKey.String(r.URL.String()),
+			attribute.String("component", ComponentName),
+		)
 
 		tracker := NewStatusCodeTracker(w)
 
-		next.ServeHTTP(tracker.Writer(), r.WithContext(opentracing.ContextWithSpan(r.Context(), span)))
+		next.ServeHTTP(tracker.Writer(), r.WithContext(ctx))
 
-		ext.HTTPStatusCode.Set(span, tracker.OpentracingCode())
+		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tracker.status))
 
 		if tracker.status >= http.StatusBadRequest {
 			metrics.HTTPFailedInputReqCounter.Inc()
-			ext.Error.Set(span, true)
+			span.SetAttributes(attribute.Bool("error", true))
 		} else {
 			metrics.HTTPSuccessInputReqCounter.Inc()
 		}

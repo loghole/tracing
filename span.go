@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"sync/atomic"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -16,137 +16,127 @@ const (
 )
 
 type Span struct {
-	tracer opentracing.Tracer
-	span   opentracing.Span
-
-	finished uint32
+	tracer trace.Tracer
+	span   trace.Span
 }
 
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(callerName(), opentracing.ChildOf(span.Context()))
-
-		// Overriding the original context
-		*ctx = opentracing.ContextWithSpan(*ctx, s.span)
+	if span := trace.SpanFromContext(*ctx); span != nil {
+		*ctx, s.span = span.TracerProvider().Tracer(_defaultTracerName).Start(*ctx, callerName())
 	}
 
 	return s
 }
 
-func FollowsSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
-	s = &Span{}
-
-	if span := opentracing.SpanFromContext(*ctx); span != nil {
-		s.span = span.Tracer().StartSpan(callerName(), opentracing.FollowsFrom(span.Context()))
-
-		// Overriding the original context
-		*ctx = opentracing.ContextWithSpan(context.Background(), s.span)
-	}
-
-	return s
-}
-
+// Finish is alias of End function.
 func (s *Span) Finish() {
-	if !atomic.CompareAndSwapUint32(&s.finished, 0, 1) {
-		warnf("%s finish finished span", callerLine())
-	}
-
-	if s.span != nil {
-		s.span.Finish()
-	}
+	s.End()
 }
 
-func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
-	if !atomic.CompareAndSwapUint32(&s.finished, 0, 1) {
-		warnf("%s finish finished span", callerLine())
+// End completes the Span. The Span is considered complete and ready to be
+// delivered through the rest of the telemetry pipeline after this method
+// is called. Therefore, updates to the Span are not allowed after this
+// method has been called.
+func (s *Span) End(options ...trace.SpanEndOption) {
+	if s.span == nil {
+		return
 	}
 
-	if s.span != nil {
-		s.span.FinishWithOptions(opts)
-	}
+	s.span.End(options...)
 }
 
-func (s *Span) Context() opentracing.SpanContext {
-	if s.span != nil {
-		return s.span.Context()
+// AddEvent adds an event with the provided name and options.
+func (s *Span) AddEvent(name string, options ...trace.EventOption) {
+	if s.span == nil {
+		return
 	}
 
-	return nil
+	s.span.AddEvent(name, options...)
 }
 
-func (s *Span) SetOperationName(operationName string) opentracing.Span {
-	if s.span != nil {
-		return s.span.SetOperationName(operationName)
+// IsRecording returns the recording state of the Span. It will return
+// true if the Span is active and events can be recorded.
+func (s *Span) IsRecording() bool {
+	if s.span == nil {
+		return false
 	}
+
+	return s.span.IsRecording()
+}
+
+// RecordError will record err as an exception span event for this span. An
+// additional call to SetStatus is required if the Status of the Span should
+// be set to Error, as this method does not change the Span status. If this
+// span is not being recorded or err is nil then this method does nothing.
+func (s *Span) RecordError(err error, options ...trace.EventOption) {
+	if s.span == nil {
+		return
+	}
+
+	s.span.RecordError(err, options...)
+}
+
+// SpanContext returns the SpanContext of the Span. The returned SpanContext
+// is usable even after the End method has been called for the Span.
+func (s *Span) SpanContext() trace.SpanContext {
+	if s.span == nil {
+		return trace.SpanContext{}
+	}
+
+	return s.span.SpanContext()
+}
+
+// SetStatus sets the status of the Span in the form of a code and a
+// description, overriding previous values set. The description is only
+// included in a status when the code is for an error.
+func (s *Span) SetStatus(code codes.Code, description string) {
+	if s.span == nil {
+		return
+	}
+
+	s.span.SetStatus(code, description)
+}
+
+// SetName sets the Span name.
+func (s *Span) SetName(name string) {
+	if s.span == nil {
+		return
+	}
+
+	s.span.SetName(name)
+}
+
+// SetAttributes sets kv as attributes of the Span. If a key from kv
+// already exists for an attribute of the Span it will be overwritten with
+// the value contained in kv.
+func (s *Span) SetAttributes(kv ...attribute.KeyValue) {
+	if s.span == nil {
+		return
+	}
+
+	s.span.SetAttributes(kv...)
+}
+
+// TracerProvider returns a TracerProvider that can be used to generate
+// additional Spans on the same telemetry pipeline as the current Span.
+func (s *Span) TracerProvider() trace.TracerProvider {
+	if s.span == nil {
+		return nil
+	}
+
+	return s.span.TracerProvider()
+}
+
+func (s *Span) SetTag(key string, value interface{}) *Span {
+	if s.span == nil {
+		return nil
+	}
+
+	s.span.SetAttributes(attributeFromInterface(key, value))
 
 	return s
-}
-
-func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
-	if s.span != nil {
-		return s.span.SetTag(key, value)
-	}
-
-	return s
-}
-
-func (s *Span) LogFields(fields ...log.Field) {
-	if s.span != nil {
-		s.span.LogFields(fields...)
-	}
-}
-
-func (s *Span) LogKV(alternatingKeyValues ...interface{}) {
-	if s.span != nil {
-		s.span.LogKV(alternatingKeyValues...)
-	}
-}
-
-func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
-	if s.span != nil {
-		return s.span.SetBaggageItem(restrictedKey, value)
-	}
-
-	return s
-}
-
-func (s *Span) BaggageItem(restrictedKey string) string {
-	if s.span != nil {
-		return s.span.BaggageItem(restrictedKey)
-	}
-
-	return ""
-}
-
-func (s *Span) Tracer() opentracing.Tracer {
-	if s.tracer != nil {
-		return s.tracer
-	}
-
-	return nil
-}
-
-// Deprecated: use LogFields or LogKV.
-func (s *Span) LogEvent(event string) {
-	if s.span != nil {
-		s.span.LogFields(log.String(event, ""))
-	}
-}
-
-// Deprecated: use LogFields or LogKV.
-func (s *Span) LogEventWithPayload(event string, payload interface{}) {
-	if s.span != nil {
-		s.span.LogKV(event, payload)
-	}
-}
-
-// Deprecated: use LogFields or LogKV.
-func (s *Span) Log(data opentracing.LogData) {
-	if s.span != nil {
-		s.span.LogKV(data.Event, data.Payload)
-	}
 }
 
 func callerName() string {
@@ -164,17 +154,31 @@ func callerName() string {
 	return list[len(list)-1]
 }
 
-func callerLine() string {
-	var pc [1]uintptr
-
-	runtime.Callers(baseSkipCallers, pc[:])
-
-	f := runtime.FuncForPC(pc[0])
-	if f == nil {
-		return "unknown"
+func attributeFromInterface(key string, value interface{}) attribute.KeyValue { // nolint:cyclop // it's ok.
+	switch val := value.(type) {
+	case bool:
+		return attribute.Bool(key, val)
+	case []bool:
+		return attribute.BoolSlice(key, val)
+	case int:
+		return attribute.Int(key, val)
+	case []int:
+		return attribute.IntSlice(key, val)
+	case int64:
+		return attribute.Int64(key, val)
+	case []int64:
+		return attribute.Int64Slice(key, val)
+	case float64:
+		return attribute.Float64(key, val)
+	case []float64:
+		return attribute.Float64Slice(key, val)
+	case string:
+		return attribute.String(key, val)
+	case []string:
+		return attribute.StringSlice(key, val)
+	case fmt.Stringer:
+		return attribute.Stringer(key, val)
+	default:
+		return attribute.String(key, fmt.Sprint(val))
 	}
-
-	file, line := f.FileLine(pc[0])
-
-	return fmt.Sprintf("%s:%d", file, line)
 }
