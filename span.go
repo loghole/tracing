@@ -30,6 +30,7 @@ type Span struct {
 //
 //     time.Sleep(time.Second)
 // }
+//
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
