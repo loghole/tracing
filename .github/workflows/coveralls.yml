@@ -1,3 +1,5 @@
+name: "coveralls"
+
 on: [ pull_request ]
 jobs:
 
