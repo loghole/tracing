@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// MockLogger is logger wrapped for tests.
 type MockLogger struct {
 	*zap.SugaredLogger
 	buf bytes.Buffer

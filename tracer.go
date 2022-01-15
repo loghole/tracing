@@ -22,6 +22,7 @@ const _defaultTracerName = "github.com/loghole/tracing"
 
 var _ trace.Tracer = new(Tracer)
 
+// Tracer is the wrapper for `trace.Tracer` with span builder.
 type Tracer struct {
 	provider trace.TracerProvider
 	tracer   trace.Tracer
@@ -29,6 +30,27 @@ type Tracer struct {
 	shutdown func(ctx context.Context) error
 }
 
+// NewTracer returns initialized Tracer with jaeger exporter.
+//
+// Example:
+//
+// func main() {
+//     tracer, err := tracing.NewTracer(DefaultConfiguration(
+//         "example-service",
+//         "udp://127.0.0.1:6831",
+//     ))
+//     if err != nil {
+//         log.Fatalf("init tracer: %v", err)
+//     }
+//
+//     defer tracer.Close()
+//
+//     _, span := tracer.NewSpan().WithName("example-span").StartWithContext(context.Background())
+//     defer span.End()
+//
+//     time.Sleep(time.Second)
+// }
+//
 func NewTracer(configuration *Configuration) (*Tracer, error) {
 	if err := configuration.validate(); err != nil {
 		return nil, err
@@ -73,15 +95,30 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 	tracer := &Tracer{
 		provider: provider,
 		tracer:   provider.Tracer(_defaultTracerName),
+		shutdown: provider.Shutdown,
 	}
 
 	return tracer, nil
 }
 
+// Start creates a span and a context.Context containing the newly-created span.
+//
+// If the context.Context provided in `ctx` contains a Span then the newly-created
+// Span will be a child of that span, otherwise it will be a root span. This behavior
+// can be overridden by providing `WithNewRoot()` as a SpanOption, causing the
+// newly-created Span to be a root span even if `ctx` contains a Span.
+//
+// When creating a Span it is recommended to provide all known span attributes using
+// the `WithAttributes()` SpanOption as samplers will only have access to the
+// attributes provided when a Span is created.
+//
+// Any Span that is created MUST also be ended. This is the responsibility of the user.
+// Implementations of this API may leak memory or other resources if Spans are not ended.
 func (t *Tracer) Start(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return t.tracer.Start(ctx, name, opts...)
 }
 
+// Close shuts down the span processors in the order they were registered.
 func (t *Tracer) Close() error {
 	if t.shutdown == nil {
 		return nil
@@ -95,10 +132,12 @@ func (t *Tracer) Close() error {
 	return t.shutdown(ctx)
 }
 
+// NewSpan creates a SpanBuilder.
 func (t *Tracer) NewSpan() SpanBuilder {
 	return SpanBuilder{tracer: t.tracer}
 }
 
+// SpanBuilder is a helper for creating a span through a chain of calls.
 type SpanBuilder struct {
 	name    string
 	tracer  trace.Tracer
@@ -106,12 +145,14 @@ type SpanBuilder struct {
 	options []trace.SpanStartOption
 }
 
+// WithName sets custom span name.
 func (b SpanBuilder) WithName(name string) SpanBuilder {
 	b.name = name
 
 	return b
 }
 
+// ExtractMap reads tracecontext from the `map[string]string` carrier and set remote SpanContext for new span.
 func (b SpanBuilder) ExtractMap(carrier map[string]string) SpanBuilder {
 	if carrier == nil {
 		return b
@@ -122,6 +163,7 @@ func (b SpanBuilder) ExtractMap(carrier map[string]string) SpanBuilder {
 	return b
 }
 
+// ExtractHeaders reads tracecontext from the `http.Header` carrier and set remote SpanContext for new span.
 func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 	if carrier == nil {
 		return b
@@ -132,12 +174,14 @@ func (b SpanBuilder) ExtractHeaders(carrier http.Header) SpanBuilder {
 	return b
 }
 
+// Start creates a span.
 func (b SpanBuilder) Start(ctx context.Context) *Span {
 	_, span := b.StartWithContext(ctx)
 
 	return span
 }
 
+// StartWithContext creates a span and a context.Context containing the newly-created span.
 func (b SpanBuilder) StartWithContext(ctx context.Context) (context.Context, *Span) {
 	if b.name == "" {
 		b.name = callerName()

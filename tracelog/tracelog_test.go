@@ -37,7 +37,7 @@ func TestTraceLogger_Debug(t *testing.T) {
 				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
-			expected: "debug\tsome string1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "debug\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -85,7 +85,7 @@ func TestTraceLogger_Debugf(t *testing.T) {
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
-			expected: "debug\tsome int: 1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "debug\tsome int: 1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -130,7 +130,7 @@ func TestTraceLogger_Info(t *testing.T) {
 				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
-			expected: "info\tsome string1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "info\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -178,7 +178,7 @@ func TestTraceLogger_Infof(t *testing.T) {
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
-			expected: "info\tsome int: 1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "info\tsome int: 1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -223,7 +223,7 @@ func TestTraceLogger_Warn(t *testing.T) {
 				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
-			expected: "warn\tsome string1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "warn\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -271,7 +271,7 @@ func TestTraceLogger_Warnf(t *testing.T) {
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
-			expected: "warn\tsome int: 1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "warn\tsome int: 1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -316,7 +316,7 @@ func TestTraceLogger_Error(t *testing.T) {
 				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
-			expected: "error\tsome string1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "error\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -364,7 +364,7 @@ func TestTraceLogger_Errorf(t *testing.T) {
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
-			expected: "error\tsome int: 1234567890\t{\"trace_id\": \"000000000000007b\", \"span_id\": \"0000000000000141\"}\n",
+			expected: "error\tsome int: 1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
 		},
 	}
 	for _, tt := range tests {
@@ -394,23 +394,23 @@ func TestTraceLogger_TraceID(t *testing.T) {
 		{
 			name: "WithSpan#1",
 			args: args{
-				ctx: test.NewContextWithMockSpan(context.Background(), 2144414454365, 0),
+				ctx: test.NewContextWithMockSpan(context.Background(), 2144414454365, 1),
 			},
-			want: "000001f3490fd25d",
+			want: "5dd20f49f30100000000000000000000",
 		},
 		{
 			name: "WithSpan#2",
 			args: args{
 				ctx: test.NewContextWithMockSpan(context.Background(), 0, 0),
 			},
-			want: "0000000000000000",
+			want: "",
 		},
 		{
 			name: "WithSpan#3",
 			args: args{
-				ctx: test.NewContextWithMockSpan(context.Background(), 9543901873575874897, 0),
+				ctx: test.NewContextWithMockSpan(context.Background(), 9543901873575874897, 1),
 			},
-			want: "8472c03031acd151",
+			want: "51d1ac3130c072840000000000000000",
 		},
 		{
 			name: "WithoutSpan#1",
@@ -425,7 +425,7 @@ func TestTraceLogger_TraceID(t *testing.T) {
 			l := NewTraceLogger(zap.S())
 
 			if got := l.TraceID(tt.args.ctx); got != tt.want {
-				t.Errorf("TraceID() = %v, want %v", got, tt.want)
+				t.Errorf("TraceID() = '%v', want '%v'", got, tt.want)
 			}
 		})
 	}

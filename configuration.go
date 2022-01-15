@@ -13,6 +13,7 @@ import (
 
 var ErrInvalidConfiguration = errors.New("invalid configuration")
 
+// Configuration configures Tracer.
 type Configuration struct { // nolint:govet // not need.
 	ServiceName string
 	Addr        string
@@ -23,6 +24,7 @@ type Configuration struct { // nolint:govet // not need.
 	SpanProcessorOptions []tracesdk.BatchSpanProcessorOption
 }
 
+// DefaultConfiguration returns base configuration with default params.
 func DefaultConfiguration(service, addr string) *Configuration {
 	configuration := &Configuration{
 		ServiceName: service,
