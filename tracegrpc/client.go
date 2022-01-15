@@ -105,4 +105,8 @@ func setAttributes(span *tracing.Span, method string, err error) {
 		attribute.Bool("error", err != nil),
 		attribute.String("component", _componentName),
 	)
+
+	if err != nil {
+		span.RecordError(err)
+	}
 }
