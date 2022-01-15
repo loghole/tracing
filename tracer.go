@@ -20,6 +20,8 @@ import (
 
 const _defaultTracerName = "github.com/loghole/tracing"
 
+var _ trace.Tracer = new(Tracer)
+
 type Tracer struct {
 	provider trace.TracerProvider
 	tracer   trace.Tracer
@@ -76,8 +78,12 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 	return tracer, nil
 }
 
-func (c *Tracer) Close() error {
-	if c.shutdown == nil {
+func (t *Tracer) Start(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return t.tracer.Start(ctx, name, opts...)
+}
+
+func (t *Tracer) Close() error {
+	if t.shutdown == nil {
 		return nil
 	}
 
@@ -86,11 +92,11 @@ func (c *Tracer) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return c.shutdown(ctx)
+	return t.shutdown(ctx)
 }
 
-func (c *Tracer) NewSpan() SpanBuilder {
-	return SpanBuilder{tracer: c.tracer}
+func (t *Tracer) NewSpan() SpanBuilder {
+	return SpanBuilder{tracer: t.tracer}
 }
 
 type SpanBuilder struct {

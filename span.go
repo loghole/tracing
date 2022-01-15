@@ -15,6 +15,8 @@ const (
 	baseSkipCallers = 3
 )
 
+var _ trace.Span = new(Span)
+
 type Span struct {
 	tracer trace.Tracer
 	span   trace.Span

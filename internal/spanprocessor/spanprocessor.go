@@ -2,7 +2,6 @@ package spanprocessor
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -21,13 +20,11 @@ func NewSampled(
 	processor tracesdk.SpanProcessor,
 	sampler tracesdk.Sampler,
 ) *Sampled {
-	sampledProcessor := &Sampled{
+	return &Sampled{
 		processor: processor,
 		sampler:   sampler,
-		traces:    map[trace.TraceID]*traceWrapper{},
+		traces:    make(map[trace.TraceID]*traceWrapper),
 	}
-
-	return sampledProcessor
 }
 
 func (p *Sampled) OnStart(parent context.Context, span tracesdk.ReadWriteSpan) {
@@ -35,15 +32,13 @@ func (p *Sampled) OnStart(parent context.Context, span tracesdk.ReadWriteSpan) {
 	p.processor.OnStart(parent, span)
 }
 
-func (p *Sampled) OnEnd(s tracesdk.ReadOnlySpan) {
-	tr, ok := p.getTrace(s.SpanContext().TraceID())
+func (p *Sampled) OnEnd(span tracesdk.ReadOnlySpan) {
+	tr, ok := p.getTrace(span.SpanContext().TraceID())
 	if !ok {
-		log.Println("trace not found: ", s.SpanContext().TraceID())
-
 		return
 	}
 
-	spanID := s.SpanContext().SpanID()
+	spanID := span.SpanContext().SpanID()
 
 	if !tr.isFinished && !tr.isParent(spanID) {
 		return
@@ -62,7 +57,7 @@ func (p *Sampled) OnEnd(s tracesdk.ReadOnlySpan) {
 	}
 
 	if spanWrapper, ok := tr.spans[spanID]; ok {
-		p.send(spanWrapper.context, s, hasError)
+		p.send(spanWrapper.context, span, hasError)
 	}
 }
 

@@ -34,7 +34,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (c *Client) Get(ctx context.Context, uri string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, uri, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
