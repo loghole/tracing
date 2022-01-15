@@ -48,6 +48,6 @@ func next(ctx context.Context) {
 
 # Examples
 
-- [HTTP Client](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/client/main.go)
-- [HTTP Server](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/server/main.go)
-- [Simple](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/simple/main.go)
+- [HTTP Client](https://github.com/loghole/tracing/blob/85a206d9aa6242f693283e159ac428dc23ea9c99/example/client/main.go)
+- [HTTP Server](https://github.com/loghole/tracing/blob/85a206d9aa6242f693283e159ac428dc23ea9c99/example/server/main.go)
+- [Simple](https://github.com/loghole/tracing/blob/85a206d9aa6242f693283e159ac428dc23ea9c99/example/simple/main.go)
