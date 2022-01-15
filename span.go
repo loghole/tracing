@@ -11,17 +11,25 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
-	baseSkipCallers = 3
-)
+const _baseSkipCallers = 3
 
 var _ trace.Span = new(Span)
 
+// Span is wrapper for `trace.Span` interface.
 type Span struct {
 	tracer trace.Tracer
 	span   trace.Span
 }
 
+// ChildSpan starts new span and replace original context.
+//
+// Example:
+//
+// func example(ctx context.Context) {
+//     defer tracing.ChildSpan(&ctx).End()
+//
+//     time.Sleep(time.Second)
+// }
 func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
 	s = &Span{}
 
@@ -144,7 +152,7 @@ func (s *Span) SetTag(key string, value interface{}) *Span {
 func callerName() string {
 	var pc [1]uintptr
 
-	runtime.Callers(baseSkipCallers, pc[:])
+	runtime.Callers(_baseSkipCallers, pc[:])
 
 	f := runtime.FuncForPC(pc[0])
 	if f == nil {

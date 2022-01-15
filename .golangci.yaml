@@ -1,6 +1,4 @@
 run:
-  skip-dirs:
-    - internal/otgrpc
   tests: false
   timeout: 5m
 linters:
