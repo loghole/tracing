@@ -3,7 +3,8 @@
 [![GoDoc](https://pkg.go.dev/badge/github.com/loghole/tracing)](https://pkg.go.dev/github.com/loghole/tracing)
 [![Go Report Card](https://goreportcard.com/badge/github.com/loghole/tracing)](https://goreportcard.com/report/github.com/loghole/tracing)
 
-Tracing is a go.opentelemetry.io Tracer wrapper for instrumenting golang applications to collect traces in jaeger.
+Tracing is a [go.opentelemetry.io](https://github.com/open-telemetry/opentelemetry-go) Tracer wrapper for instrumenting
+golang applications to collect traces in jaeger.
 
 # Install
 
@@ -47,6 +48,6 @@ func next(ctx context.Context) {
 
 # Examples
 
-- [HTTP Client](https://github.com/loghole/database/blob/master/example/client/main.go)
-- [HTTP Server](https://github.com/loghole/database/blob/master/example/server/main.go)
-- [Simple](https://github.com/loghole/database/blob/master/example/simple/main.go)
+- [HTTP Client](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/client/main.go)
+- [HTTP Server](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/server/main.go)
+- [Simple](https://github.com/loghole/database/blob/28b566ea84fa086106479b85f08998a533b2a991/example/simple/main.go)
