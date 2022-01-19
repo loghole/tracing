@@ -57,6 +57,9 @@ func (t *traceWrapper) isParent(spanID trace.SpanID) bool {
 }
 
 func (t *traceWrapper) hasError() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if t._hasError {
 		return true
 	}
