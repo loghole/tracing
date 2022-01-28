@@ -17,10 +17,6 @@ func NewStatusCodeTracker(w http.ResponseWriter) *StatusCodeTracker {
 	}
 }
 
-func (w *StatusCodeTracker) OpentracingCode() uint16 {
-	return uint16(w.status)
-}
-
 func (w *StatusCodeTracker) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)

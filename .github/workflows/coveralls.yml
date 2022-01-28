@@ -1,8 +1,12 @@
 name: "coveralls"
 
-on: [ pull_request ]
-jobs:
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
+jobs:
   test:
     runs-on: ubuntu-latest
     strategy:

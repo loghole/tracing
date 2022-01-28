@@ -11,9 +11,8 @@ import (
 )
 
 type Transport struct {
-	tracer   trace.Tracer
-	base     http.RoundTripper
-	extended http.RoundTripper
+	tracer trace.Tracer
+	base   http.RoundTripper
 }
 
 func NewTransport(tracer trace.Tracer, roundTripper http.RoundTripper) *Transport {
@@ -31,11 +30,7 @@ func NewTransport(tracer trace.Tracer, roundTripper http.RoundTripper) *Transpor
 
 // RoundTrip implements the RoundTripper interface.
 func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	if t.extended != nil {
-		return t.extended.RoundTrip(req)
-	}
-
-	ctx, span := t.tracer.Start(req.Context(), t.defaultNameFunc(req), trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := t.tracer.Start(req.Context(), defaultNameFunc(req), trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 
 	span.SetAttributes(
@@ -60,6 +55,6 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 	return resp, nil
 }
 
-func (t *Transport) defaultNameFunc(req *http.Request) string {
+func defaultNameFunc(req *http.Request) string {
 	return "HTTP " + req.Method + " " + req.RequestURI
 }
