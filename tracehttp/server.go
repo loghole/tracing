@@ -2,16 +2,14 @@ package tracehttp
 
 import (
 	"net/http"
-	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
 
-	"github.com/loghole/tracing"
 	"github.com/loghole/tracing/internal/metrics"
 )
-
-const ComponentName = "net/http"
 
 type Option func(options *Options)
 
@@ -33,11 +31,11 @@ type Options struct {
 }
 
 type Middleware struct {
-	tracer  *tracing.Tracer
+	tracer  trace.Tracer
 	options *Options
 }
 
-func NewMiddleware(tracer *tracing.Tracer, options ...Option) *Middleware {
+func NewMiddleware(tracer trace.Tracer, options ...Option) *Middleware {
 	middleware := &Middleware{tracer: tracer, options: &Options{}}
 
 	for _, option := range options {
@@ -49,13 +47,13 @@ func NewMiddleware(tracer *tracing.Tracer, options ...Option) *Middleware {
 	}
 
 	if middleware.options.NameFunc == nil {
-		middleware.options.NameFunc = middleware.defaultNameFunc
+		middleware.options.NameFunc = defaultNameFunc
 	}
 
 	return middleware
 }
 
-func Handler(tracer *tracing.Tracer, options ...Option) func(next http.Handler) http.Handler {
+func Handler(tracer trace.Tracer, options ...Option) func(next http.Handler) http.Handler {
 	m := NewMiddleware(tracer, options...)
 
 	return m.Middleware
@@ -69,22 +67,21 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx, span := m.tracer.
-			NewSpan().
-			WithName(m.options.NameFunc(r)).
-			ExtractHeaders(r.Header).
-			StartWithContext(r.Context())
+		ctx := new(propagation.TraceContext).Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+
+		ctx, span := m.tracer.Start(ctx, defaultNameFunc(r), trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
 		span.SetAttributes(
 			semconv.HTTPMethodKey.String(r.Method),
 			semconv.HTTPURLKey.String(r.URL.String()),
-			attribute.String("component", ComponentName),
+			semconv.HTTPSchemeKey.String(r.URL.Scheme),
+			semconv.HTTPRequestContentLengthKey.Int64(r.ContentLength),
 		)
 
 		tracker := NewStatusCodeTracker(w)
 
-		next.ServeHTTP(tracker.Writer(), r.WithContext(ctx))
+		next.ServeHTTP(tracker, r.WithContext(ctx))
 
 		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tracker.status))
 
@@ -95,10 +92,6 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 			metrics.HTTPSuccessInputReqCounter.Inc()
 		}
 	})
-}
-
-func (m *Middleware) defaultNameFunc(r *http.Request) string {
-	return strings.Join([]string{"HTTP", r.Method, r.RequestURI}, " ")
 }
 
 func (m *Middleware) defaultFilterFunc(*http.Request) bool {

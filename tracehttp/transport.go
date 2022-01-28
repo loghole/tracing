@@ -2,21 +2,20 @@ package tracehttp
 
 import (
 	"net/http"
-	"strings"
 
-	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/loghole/tracing"
 )
 
 type Transport struct {
-	tracer   *tracing.Tracer
-	base     http.RoundTripper
-	extended http.RoundTripper
+	tracer trace.Tracer
+	base   http.RoundTripper
 }
 
-func NewTransport(tracer *tracing.Tracer, roundTripper http.RoundTripper) *Transport {
+func NewTransport(tracer trace.Tracer, roundTripper http.RoundTripper) *Transport {
 	if roundTripper == nil {
 		roundTripper = http.DefaultTransport
 	}
@@ -31,24 +30,22 @@ func NewTransport(tracer *tracing.Tracer, roundTripper http.RoundTripper) *Trans
 
 // RoundTrip implements the RoundTripper interface.
 func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	if t.extended != nil {
-		return t.extended.RoundTrip(req)
-	}
-
-	ctx, span := t.tracer.NewSpan().WithName(t.defaultNameFunc(req)).StartWithContext(req.Context())
+	ctx, span := t.tracer.Start(req.Context(), defaultNameFunc(req), trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 
 	span.SetAttributes(
 		semconv.HTTPMethodKey.String(req.Method),
 		semconv.HTTPURLKey.String(req.URL.String()),
-		attribute.String("component", ComponentName),
+		semconv.HTTPSchemeKey.String(req.URL.Scheme),
+		semconv.HTTPRequestContentLengthKey.Int64(req.ContentLength),
 	)
 
 	tracing.InjectHeaders(ctx, req.Header)
 
 	resp, err = t.base.RoundTrip(req.WithContext(ctx))
 	if err != nil {
-		span.SetAttributes(attribute.Bool("error", true))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "error")
 
 		return resp, err
 	}
@@ -58,6 +55,6 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 	return resp, nil
 }
 
-func (t *Transport) defaultNameFunc(req *http.Request) string {
-	return strings.Join([]string{"HTTP", req.Method, req.RequestURI}, " ")
+func defaultNameFunc(req *http.Request) string {
+	return "HTTP " + req.Method + " " + req.RequestURI
 }

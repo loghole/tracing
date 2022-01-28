@@ -7,16 +7,17 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/loghole/tracing"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/loghole/tracing/internal/metrics"
 )
 
 type Client struct {
 	client *http.Client
-	tracer *tracing.Tracer
+	tracer trace.Tracer
 }
 
-func NewClient(tracer *tracing.Tracer, client *http.Client) *Client {
+func NewClient(tracer trace.Tracer, client *http.Client) *Client {
 	client.Transport = NewTransport(tracer, client.Transport)
 
 	return &Client{client: client, tracer: tracer}

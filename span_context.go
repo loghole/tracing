@@ -14,6 +14,11 @@ func SpanFromContext(ctx context.Context) trace.Span {
 	return trace.SpanFromContext(ctx)
 }
 
+// SpanContextFromContext returns the current Span's SpanContext.
+func SpanContextFromContext(ctx context.Context) trace.SpanContext {
+	return SpanFromContext(ctx).SpanContext()
+}
+
 // InjectMap set tracecontext from the Context into the map[string]string carrier.
 func InjectMap(ctx context.Context, carrier map[string]string) {
 	new(propagation.TraceContext).Inject(ctx, propagation.MapCarrier(carrier))

@@ -2,19 +2,17 @@ package tracegrpc
 
 import (
 	"context"
-	"net/http"
 
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/loghole/tracing"
 	"github.com/loghole/tracing/internal/metrics"
 )
 
-const _componentName = "net/grpc"
-
 // UnaryServerInterceptor returns trace grpc interceptor.
-func UnaryServerInterceptor(tracer *tracing.Tracer) grpc.UnaryServerInterceptor {
+func UnaryServerInterceptor(tracer trace.Tracer) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},
@@ -26,11 +24,9 @@ func UnaryServerInterceptor(tracer *tracing.Tracer) grpc.UnaryServerInterceptor 
 			md = metadata.New(nil)
 		}
 
-		ctx, span := tracer.
-			NewSpan().
-			WithName(defaultNameFunc(info.FullMethod)).
-			ExtractHeaders(http.Header(md)).
-			StartWithContext(ctx)
+		ctx = new(propagation.TraceContext).Extract(ctx, propagation.HeaderCarrier(md))
+
+		ctx, span := tracer.Start(ctx, defaultNameFunc(info.FullMethod), trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
 		resp, err = handler(ctx, req)
@@ -46,21 +42,19 @@ func UnaryServerInterceptor(tracer *tracing.Tracer) grpc.UnaryServerInterceptor 
 	}
 }
 
-func StreamServerInterceptor(tracer *tracing.Tracer) grpc.StreamServerInterceptor {
+func StreamServerInterceptor(tracer trace.Tracer) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		md, ok := metadata.FromIncomingContext(ss.Context())
 		if !ok {
 			md = metadata.New(nil)
 		}
 
-		ctx, span := tracer.
-			NewSpan().
-			WithName(defaultNameFunc(info.FullMethod)).
-			ExtractHeaders(http.Header(md)).
-			StartWithContext(ss.Context())
+		ctx := new(propagation.TraceContext).Extract(ss.Context(), propagation.HeaderCarrier(md))
+
+		ctx, span := tracer.Start(ctx, defaultNameFunc(info.FullMethod), trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
-		ss = &openTracingServerStream{ServerStream: ss, ctx: ctx}
+		ss = &tracingServerStream{ServerStream: ss, ctx: ctx}
 
 		err := handler(srv, ss)
 		if err != nil {
@@ -75,12 +69,12 @@ func StreamServerInterceptor(tracer *tracing.Tracer) grpc.StreamServerIntercepto
 	}
 }
 
-type openTracingServerStream struct {
+type tracingServerStream struct {
 	grpc.ServerStream
-	ctx context.Context
+	ctx context.Context // nolint:containedctx // need internal context.
 }
 
-func (ss *openTracingServerStream) Context() context.Context {
+func (ss *tracingServerStream) Context() context.Context {
 	return ss.ctx
 }
 

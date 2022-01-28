@@ -42,7 +42,7 @@ func (c *Configuration) validate() error {
 	}
 
 	if c.Sampler == nil {
-		return fmt.Errorf("%w: smpler cannot be empty", ErrInvalidConfiguration)
+		return fmt.Errorf("%w: sampler cannot be empty", ErrInvalidConfiguration)
 	}
 
 	return nil

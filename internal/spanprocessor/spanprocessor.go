@@ -33,31 +33,33 @@ func (p *Sampled) OnStart(parent context.Context, span tracesdk.ReadWriteSpan) {
 }
 
 func (p *Sampled) OnEnd(span tracesdk.ReadOnlySpan) {
-	tr, ok := p.getTrace(span.SpanContext().TraceID())
+	spanCtx := span.SpanContext()
+
+	traceWrapper, ok := p.getTrace(spanCtx.TraceID())
 	if !ok {
 		return
 	}
 
-	spanID := span.SpanContext().SpanID()
+	spanID := spanCtx.SpanID()
 
-	if !tr.isFinished && !tr.isParent(spanID) {
+	if !traceWrapper.isFinished && !traceWrapper.isParent(spanID) {
 		return
 	}
 
-	hasError := tr.hasError()
+	hasError := traceWrapper.hasError()
 
-	if tr.isParent(spanID) {
-		tr.isFinished = true
+	if traceWrapper.isParent(spanID) {
+		traceWrapper.isFinished = true
 
-		for _, span := range tr.extractFinishedSpans() {
-			p.send(span.context, span.span, hasError)
+		for _, span := range traceWrapper.extractFinishedSpans() {
+			p.send(span.ctx, span.span, hasError)
 		}
 
 		return
 	}
 
-	if spanWrapper, ok := tr.spans[spanID]; ok {
-		p.send(spanWrapper.context, span, hasError)
+	if spanWrapper, ok := traceWrapper.spans[spanID]; ok {
+		p.send(spanWrapper.ctx, span, hasError)
 	}
 }
 
@@ -85,7 +87,7 @@ func (p *Sampled) onStart(parent context.Context, span tracesdk.ReadWriteSpan) {
 		p.traces[spanCtx.TraceID()] = &traceWrapper{
 			parentSpanID: spanCtx.SpanID(),
 			spans: map[trace.SpanID]spanWrapper{
-				spanCtx.SpanID(): {span: span, context: parent},
+				spanCtx.SpanID(): {span: span, ctx: parent},
 			},
 		}
 	}
@@ -136,7 +138,7 @@ func (p *Sampled) removeTraces(traceID trace.TraceID) {
 }
 
 func (p *Sampled) flush() {
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 
 	p.mu.Lock()
 
@@ -149,7 +151,7 @@ func (p *Sampled) flush() {
 			go func(span spanWrapper) {
 				defer wg.Done()
 
-				p.send(span.context, span.span, hasError)
+				p.send(span.ctx, span.span, hasError)
 			}(span)
 		}
 	}

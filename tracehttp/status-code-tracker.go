@@ -17,10 +17,6 @@ func NewStatusCodeTracker(w http.ResponseWriter) *StatusCodeTracker {
 	}
 }
 
-func (w *StatusCodeTracker) OpentracingCode() uint16 {
-	return uint16(w.status)
-}
-
 func (w *StatusCodeTracker) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
@@ -30,6 +26,8 @@ func (w *StatusCodeTracker) WriteHeader(status int) {
 // ResponseWriter and only implements the same combination of additional
 // interfaces as the original. This implementation is based on
 // https://github.com/felixge/httpsnoop.
+//
+// nolint:varnamelen,maintidx // it's ok.
 func (w *StatusCodeTracker) Writer() http.ResponseWriter { // nolint:funlen,gocognit,cyclop,gocyclo // can be big.
 	var (
 		hj, i0 = w.ResponseWriter.(http.Hijacker)
