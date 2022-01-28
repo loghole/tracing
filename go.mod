@@ -3,6 +3,7 @@ module github.com/loghole/tracing
 go 1.17
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/otel v1.3.0

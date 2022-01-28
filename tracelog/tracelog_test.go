@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	"github.com/loghole/tracing/test"
+	"github.com/loghole/tracing/mocks"
 )
 
 func TestTraceLogger_Debug(t *testing.T) {
@@ -17,13 +17,13 @@ func TestTraceLogger_Debug(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:  context.Background(),
 				args: []interface{}{"1", "2", "3"},
@@ -32,9 +32,9 @@ func TestTraceLogger_Debug(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:  mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
 			expected: "debug\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
@@ -63,13 +63,13 @@ func TestTraceLogger_Debugf(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:      context.Background(),
 				template: "some value: %s",
@@ -79,9 +79,9 @@ func TestTraceLogger_Debugf(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:      test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:      mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
@@ -110,13 +110,13 @@ func TestTraceLogger_Info(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:  context.Background(),
 				args: []interface{}{"1", "2", "3"},
@@ -125,9 +125,9 @@ func TestTraceLogger_Info(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:  mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
 			expected: "info\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
@@ -156,13 +156,13 @@ func TestTraceLogger_Infof(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:      context.Background(),
 				template: "some value: %s",
@@ -172,9 +172,9 @@ func TestTraceLogger_Infof(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:      test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:      mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
@@ -203,13 +203,13 @@ func TestTraceLogger_Warn(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:  context.Background(),
 				args: []interface{}{"1", "2", "3"},
@@ -218,9 +218,9 @@ func TestTraceLogger_Warn(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:  mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
 			expected: "warn\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
@@ -249,13 +249,13 @@ func TestTraceLogger_Warnf(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:      context.Background(),
 				template: "some value: %s",
@@ -265,9 +265,9 @@ func TestTraceLogger_Warnf(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:      test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:      mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
@@ -296,13 +296,13 @@ func TestTraceLogger_Error(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:  context.Background(),
 				args: []interface{}{"1", "2", "3"},
@@ -311,9 +311,9 @@ func TestTraceLogger_Error(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:  test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:  mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				args: []interface{}{"some string", 1234567890},
 			},
 			expected: "error\tsome string1234567890\t{\"trace_id\": \"7b000000000000000000000000000000\", \"span_id\": \"4101000000000000\"}\n",
@@ -342,13 +342,13 @@ func TestTraceLogger_Errorf(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "WithoutTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				ctx:      context.Background(),
 				template: "some value: %s",
@@ -358,9 +358,9 @@ func TestTraceLogger_Errorf(t *testing.T) {
 		},
 		{
 			name:   "WithTrace",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
-				ctx:      test.NewContextWithMockSpan(context.Background(), 123, 321),
+				ctx:      mocks.NewContextWithMockSpan(context.Background(), 123, 321),
 				template: "some int: %d",
 				args:     []interface{}{1234567890},
 			},
@@ -394,21 +394,21 @@ func TestTraceLogger_TraceID(t *testing.T) {
 		{
 			name: "WithSpan#1",
 			args: args{
-				ctx: test.NewContextWithMockSpan(context.Background(), 2144414454365, 1),
+				ctx: mocks.NewContextWithMockSpan(context.Background(), 2144414454365, 1),
 			},
 			want: "5dd20f49f30100000000000000000000",
 		},
 		{
 			name: "WithSpan#2",
 			args: args{
-				ctx: test.NewContextWithMockSpan(context.Background(), 0, 0),
+				ctx: mocks.NewContextWithMockSpan(context.Background(), 0, 0),
 			},
 			want: "",
 		},
 		{
 			name: "WithSpan#3",
 			args: args{
-				ctx: test.NewContextWithMockSpan(context.Background(), 9543901873575874897, 1),
+				ctx: mocks.NewContextWithMockSpan(context.Background(), 9543901873575874897, 1),
 			},
 			want: "51d1ac3130c072840000000000000000",
 		},
@@ -438,13 +438,13 @@ func TestTraceLogger_With(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "Pass",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				obj:  struct{ Name string }{Name: "some name"},
 				args: []interface{}{"1", "2", "3"},
@@ -474,13 +474,13 @@ func TestTraceLogger_WithJSON(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		logger   *test.MockLogger
+		logger   *mocks.MockLogger
 		args     args
 		expected string
 	}{
 		{
 			name:   "UnmarshallPass",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				objData: []byte(`{"Name":"some name"}`),
 				args:    []interface{}{"1", "2", "3"},
@@ -489,7 +489,7 @@ func TestTraceLogger_WithJSON(t *testing.T) {
 		},
 		{
 			name:   "UnmarshallError",
-			logger: test.NewMockLogger(),
+			logger: mocks.NewMockLogger(),
 			args: args{
 				objData: []byte(`{{"Name":"some name"}`),
 				args:    []interface{}{"1", "2", "3"},

@@ -2,6 +2,7 @@
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/loghole/tracing)](https://pkg.go.dev/github.com/loghole/tracing)
 [![Go Report Card](https://goreportcard.com/badge/github.com/loghole/tracing)](https://goreportcard.com/report/github.com/loghole/tracing)
+[![Coverage Status](https://coveralls.io/repos/github/loghole/tracing/badge.svg)](https://coveralls.io/github/loghole/tracing)
 
 Tracing is a [go.opentelemetry.io](https://github.com/open-telemetry/opentelemetry-go) Tracer wrapper for instrumenting
 golang applications to collect traces in jaeger.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -16,14 +16,14 @@ import (
 
 const loadBalancing = `{"loadBalancingPolicy":"round_robin","loadBalancingConfig":[{"round_robin":{}}]}`
 
-func Dial(target string, tracer *tracing.Tracer, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func Dial(target string, tracer trace.Tracer, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	return DialContext(context.Background(), target, tracer, opts...)
 }
 
 func DialContext(
 	ctx context.Context,
 	target string,
-	tracer *tracing.Tracer,
+	tracer trace.Tracer,
 	opts ...grpc.DialOption,
 ) (*grpc.ClientConn, error) {
 	// Init default options.
@@ -37,7 +37,7 @@ func DialContext(
 	return grpc.DialContext(ctx, target, opts...)
 }
 
-func UnaryClientInterceptor(tracer *tracing.Tracer) grpc.UnaryClientInterceptor {
+func UnaryClientInterceptor(tracer trace.Tracer) grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -47,10 +47,7 @@ func UnaryClientInterceptor(tracer *tracing.Tracer) grpc.UnaryClientInterceptor 
 		invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption,
 	) error {
-		ctx, span := tracer.
-			NewSpan().
-			WithName(defaultNameFunc(method)).
-			StartWithContext(ctx)
+		ctx, span := tracer.Start(ctx, defaultNameFunc(method), trace.WithSpanKind(trace.SpanKindClient))
 		defer span.End()
 
 		md, ok := metadata.FromOutgoingContext(ctx)
@@ -95,15 +92,13 @@ func StreamClientInterceptor() grpc.StreamClientInterceptor {
 	}
 }
 
-func setAttributes(span *tracing.Span, method string, err error) {
+func setAttributes(span trace.Span, method string, err error) {
 	st, _ := status.FromError(err)
 
 	span.SetAttributes(
 		semconv.RPCSystemKey.String("GRPC"),
 		semconv.RPCMethodKey.String(method),
 		semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())),
-		attribute.Bool("error", err != nil),
-		attribute.String("component", _componentName),
 	)
 
 	if err != nil {

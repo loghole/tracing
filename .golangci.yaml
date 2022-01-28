@@ -47,14 +47,9 @@ linters-settings:
       - db
       - ok
       - fn
-      - md
-      - w
-      - r
-      - cc
-      - ss
-      - wg
-      - tr
     ignore-decls:
       - w http.ResponseWriter
       - r *http.Request
       - wg sync.WaitGroup
+      - cc *grpc.ClientConn
+      - ss grpc.ServerStream

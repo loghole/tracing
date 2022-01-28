@@ -79,7 +79,8 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 		span.SetAttributes(
 			semconv.HTTPMethodKey.String(r.Method),
 			semconv.HTTPURLKey.String(r.URL.String()),
-			attribute.String("component", ComponentName),
+			semconv.HTTPSchemeKey.String(r.URL.Scheme),
+			semconv.HTTPRequestContentLengthKey.Int64(r.ContentLength),
 		)
 
 		tracker := NewStatusCodeTracker(w)

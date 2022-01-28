@@ -134,7 +134,7 @@ func (s *Span) SetAttributes(kv ...attribute.KeyValue) {
 // additional Spans on the same telemetry pipeline as the current Span.
 func (s *Span) TracerProvider() trace.TracerProvider {
 	if s.span == nil {
-		return nil
+		return trace.NewNoopTracerProvider()
 	}
 
 	return s.span.TracerProvider()
@@ -142,7 +142,7 @@ func (s *Span) TracerProvider() trace.TracerProvider {
 
 func (s *Span) SetTag(key string, value interface{}) *Span {
 	if s.span == nil {
-		return nil
+		return s
 	}
 
 	s.span.SetAttributes(attributeFromInterface(key, value))

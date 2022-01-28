@@ -10,8 +10,8 @@ import (
 )
 
 type spanWrapper struct {
-	span    tracesdk.ReadWriteSpan
-	context context.Context
+	span tracesdk.ReadWriteSpan
+	ctx  context.Context // nolint:containedctx // need internal context.
 }
 
 type traceWrapper struct {
@@ -28,8 +28,8 @@ func (t *traceWrapper) storeSpan(ctx context.Context, span tracesdk.ReadWriteSpa
 	defer t.mu.Unlock()
 
 	t.spans[span.SpanContext().SpanID()] = spanWrapper{
-		context: ctx,
-		span:    span,
+		ctx:  ctx,
+		span: span,
 	}
 }
 
