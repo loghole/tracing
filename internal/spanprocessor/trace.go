@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel/codes"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -65,6 +66,12 @@ func (t *traceWrapper) hasError() bool {
 	}
 
 	for _, span := range t.spans {
+		if span.span.Status().Code == codes.Error {
+			t._hasError = true
+
+			return true
+		}
+
 		for _, attr := range span.span.Attributes() {
 			if strings.EqualFold(string(attr.Key), "error") {
 				t._hasError = true

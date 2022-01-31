@@ -101,6 +101,18 @@ func NewTracer(configuration *Configuration) (*Tracer, error) {
 	return tracer, nil
 }
 
+// NewNoopTracer returns a Tracer that performs no operations.
+// The Tracer and Spans created from the returned
+// Tracer also perform no operations.
+func NewNoopTracer() *Tracer {
+	var (
+		provider = trace.NewNoopTracerProvider()
+		tracer   = provider.Tracer(_defaultTracerName)
+	)
+
+	return &Tracer{provider: provider, tracer: tracer}
+}
+
 // Start creates a span and a context.Context containing the newly-created span.
 //
 // If the context.Context provided in `ctx` contains a Span then the newly-created

@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/loghole/tracing/mocks"
@@ -96,6 +97,7 @@ func TestSampled_OnEnd(t *testing.T) {
 					span := mocks.NewMockReadWriteSpan(ctrl)
 					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(4)
 					span.EXPECT().Attributes().Return([]attribute.KeyValue{}).Times(2)
+					span.EXPECT().Status().Return(tracesdk.Status{})
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Name().Return("")
 					span.EXPECT().SpanKind().Return(trace.SpanKind(0))
@@ -120,9 +122,51 @@ func TestSampled_OnEnd(t *testing.T) {
 					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(4)
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Attributes().Return([]attribute.KeyValue{}).Times(2)
+					span.EXPECT().Status().Return(tracesdk.Status{})
 					span.EXPECT().Name().Return("")
 					span.EXPECT().SpanKind().Return(trace.SpanKind(0))
 					span.EXPECT().Links().Return([]tracesdk.Link{})
+
+					return span
+				},
+			},
+		},
+		{
+			name: "pass ended with status err",
+			args: args{
+				makeProcessor: func() tracesdk.SpanProcessor {
+					processor := mocks.NewMockSpanProcessor(ctrl)
+					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnEnd(gomock.Any())
+
+					return processor
+				},
+				makeSpan: func() tracesdk.ReadWriteSpan {
+					span := mocks.NewMockReadWriteSpan(ctrl)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(3)
+					span.EXPECT().EndTime().Return(time.Now())
+					span.EXPECT().Status().Return(tracesdk.Status{Code: codes.Error})
+
+					return span
+				},
+			},
+		},
+		{
+			name: "pass ended with attr err",
+			args: args{
+				makeProcessor: func() tracesdk.SpanProcessor {
+					processor := mocks.NewMockSpanProcessor(ctrl)
+					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnEnd(gomock.Any())
+
+					return processor
+				},
+				makeSpan: func() tracesdk.ReadWriteSpan {
+					span := mocks.NewMockReadWriteSpan(ctrl)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(3)
+					span.EXPECT().EndTime().Return(time.Now())
+					span.EXPECT().Status().Return(tracesdk.Status{})
+					span.EXPECT().Attributes().Return([]attribute.KeyValue{attribute.Bool("error", true)})
 
 					return span
 				},
@@ -250,6 +294,133 @@ func TestSampled_BaseWork(t *testing.T) {
 	}
 
 	assert.Equal(t, map[trace.TraceID]*traceWrapper{}, processor.traces)
+}
+
+func TestSampled_SendSpan(t *testing.T) {
+	type args struct {
+		sampler tracesdk.Sampler
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		setter  func(ctx context.Context, span trace.Span)
+		checker func(recorder *tracetest.SpanRecorder)
+	}{
+		{
+			name: "AlwaysSample span without error",
+			args: args{
+				sampler: tracesdk.AlwaysSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+		{
+			name: "AlwaysSample span with error status",
+			args: args{
+				sampler: tracesdk.AlwaysSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				span.SetStatus(codes.Error, "some error")
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+		{
+			name: "AlwaysSample span with error attribute",
+			args: args{
+				sampler: tracesdk.AlwaysSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				span.SetAttributes(attribute.Bool("error", true))
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+
+		// NeverSample.
+		{
+			name: "NeverSample span without error",
+			args: args{
+				sampler: tracesdk.NeverSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 0, "recorder.Ended() != 0")
+			},
+		},
+		{
+			name: "NeverSample span with error status",
+			args: args{
+				sampler: tracesdk.NeverSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				span.SetStatus(codes.Error, "some error")
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+		{
+			name: "NeverSample span with error attribute",
+			args: args{
+				sampler: tracesdk.NeverSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				span.SetAttributes(attribute.Bool("error", true))
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+
+		// Child span.
+		{
+			name: "ChildSpan finished",
+			args: args{
+				sampler: tracesdk.AlwaysSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				_, span2 := span.TracerProvider().Tracer("").Start(ctx, "next")
+				span2.End()
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 2, "recorder.Ended() != 2")
+			},
+		},
+		{
+			name: "ChildSpan not finished",
+			args: args{
+				sampler: tracesdk.AlwaysSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				_, _ = span.TracerProvider().Tracer("").Start(ctx, "next")
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				recorder  = tracetest.NewSpanRecorder()
+				processor = NewSampled(recorder, tt.args.sampler)
+				tracer    = tracesdk.NewTracerProvider(tracesdk.WithSpanProcessor(processor)).Tracer("")
+			)
+
+			ctx, span := tracer.Start(context.Background(), "test")
+			tt.setter(ctx, span)
+			span.End()
+
+			tt.checker(recorder)
+		})
+	}
 }
 
 type NoopSpan struct {
