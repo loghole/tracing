@@ -75,7 +75,7 @@ func (m *Middleware) Middleware(next http.Handler) http.Handler {
 		ctx, span := m.tracer.Start(ctx, defaultNameFunc(r), trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
-		next.ServeHTTP(tracker, r.WithContext(ctx))
+		next.ServeHTTP(tracker.Writer(), r.WithContext(ctx))
 
 		span.SetAttributes(
 			semconv.HTTPMethodKey.String(r.Method),
