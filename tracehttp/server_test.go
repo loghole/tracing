@@ -14,7 +14,7 @@ import (
 func TestMiddleware_Middleware(t *testing.T) {
 	var (
 		tracer, recorder = mocks.NewTracerWithRecorder()
-		middleware       = NewMiddleware(tracer)
+		middleware       = NewMiddleware(tracer, WithFilterFunc(func(r *http.Request) bool { return true }))
 	)
 
 	middleware.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })).ServeHTTP(requestWR(t))
