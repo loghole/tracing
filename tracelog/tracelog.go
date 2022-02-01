@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -116,7 +116,7 @@ func TraceID(ctx context.Context) string {
 
 func setErrorTag(ctx context.Context) {
 	if span := trace.SpanFromContext(ctx); span != nil {
-		span.SetAttributes(attribute.Bool("error", true))
+		span.SetStatus(codes.Error, "error")
 	}
 }
 

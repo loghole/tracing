@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
@@ -103,5 +104,6 @@ func setAttributes(span trace.Span, method string, err error) {
 
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, "error")
 	}
 }
