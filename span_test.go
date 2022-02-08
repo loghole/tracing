@@ -389,12 +389,60 @@ func Test_attributeFromInterface(t *testing.T) {
 			want: attribute.Int("key", 1),
 		},
 		{
+			name: "IntSlice",
+			args: args{
+				key:   "key",
+				value: []int{1, 2, 3},
+			},
+			want: attribute.IntSlice("key", []int{1, 2, 3}),
+		},
+		{
+			name: "Int64",
+			args: args{
+				key:   "key",
+				value: int64(1),
+			},
+			want: attribute.Int64("key", 1),
+		},
+		{
+			name: "Int64Slice",
+			args: args{
+				key:   "key",
+				value: []int64{1, 2, 3},
+			},
+			want: attribute.Int64Slice("key", []int64{1, 2, 3}),
+		},
+		{
+			name: "Float64",
+			args: args{
+				key:   "key",
+				value: 1.1,
+			},
+			want: attribute.Float64("key", 1.1),
+		},
+		{
+			name: "Float64Slice",
+			args: args{
+				key:   "key",
+				value: []float64{1.1, 1.2},
+			},
+			want: attribute.Float64Slice("key", []float64{1.1, 1.2}),
+		},
+		{
 			name: "String",
 			args: args{
 				key:   "key",
 				value: "val",
 			},
 			want: attribute.String("key", "val"),
+		},
+		{
+			name: "StringSlice",
+			args: args{
+				key:   "key",
+				value: []string{"val", "val2"},
+			},
+			want: attribute.StringSlice("key", []string{"val", "val2"}),
 		},
 	}
 	for _, tt := range tests {

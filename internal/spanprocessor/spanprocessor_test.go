@@ -40,13 +40,29 @@ func TestSampled_OnStart(t *testing.T) {
 			args: args{
 				makeProcessor: func() tracesdk.SpanProcessor {
 					processor := mocks.NewMockSpanProcessor(ctrl)
-					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl)).Times(1)
 
 					return processor
 				},
 				makeSpan: func() tracesdk.ReadWriteSpan {
 					span := mocks.NewMockReadWriteSpan(ctrl)
 					span.EXPECT().SpanContext().Times(1).Return(trace.SpanContext{})
+					span.EXPECT().IsRecording().Return(true)
+
+					return span
+				},
+			},
+		},
+		{
+			name: "pass not recording",
+			args: args{
+				makeProcessor: func() tracesdk.SpanProcessor {
+					processor := mocks.NewMockSpanProcessor(ctrl)
+
+					return processor
+				},
+				makeSpan: func() tracesdk.ReadWriteSpan {
+					span := mocks.NewMockReadWriteSpan(ctrl)
+					span.EXPECT().IsRecording().Return(false)
 
 					return span
 				},
@@ -87,7 +103,7 @@ func TestSampled_OnEnd(t *testing.T) {
 			args: args{
 				makeProcessor: func() tracesdk.SpanProcessor {
 					processor := mocks.NewMockSpanProcessor(ctrl)
-					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnStart(gomock.Any(), mocks.NewMockReadWriteSpan(ctrl))
 
 					processor.EXPECT().OnEnd(gomock.Any())
 
@@ -95,13 +111,13 @@ func TestSampled_OnEnd(t *testing.T) {
 				},
 				makeSpan: func() tracesdk.ReadWriteSpan {
 					span := mocks.NewMockReadWriteSpan(ctrl)
-					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(4)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(6)
 					span.EXPECT().Attributes().Return([]attribute.KeyValue{}).Times(2)
 					span.EXPECT().Status().Return(tracesdk.Status{})
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Name().Return("")
 					span.EXPECT().SpanKind().Return(trace.SpanKind(0))
-					span.EXPECT().Links().Return([]tracesdk.Link{})
+					span.EXPECT().IsRecording().Return(true)
 
 					return span
 				},
@@ -112,20 +128,20 @@ func TestSampled_OnEnd(t *testing.T) {
 			args: args{
 				makeProcessor: func() tracesdk.SpanProcessor {
 					processor := mocks.NewMockSpanProcessor(ctrl)
-					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnStart(gomock.Any(), mocks.NewMockReadWriteSpan(ctrl))
 					processor.EXPECT().OnEnd(gomock.Any())
 
 					return processor
 				},
 				makeSpan: func() tracesdk.ReadWriteSpan {
 					span := mocks.NewMockReadWriteSpan(ctrl)
-					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(4)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(6)
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Attributes().Return([]attribute.KeyValue{}).Times(2)
 					span.EXPECT().Status().Return(tracesdk.Status{})
 					span.EXPECT().Name().Return("")
 					span.EXPECT().SpanKind().Return(trace.SpanKind(0))
-					span.EXPECT().Links().Return([]tracesdk.Link{})
+					span.EXPECT().IsRecording().Return(true)
 
 					return span
 				},
@@ -136,16 +152,17 @@ func TestSampled_OnEnd(t *testing.T) {
 			args: args{
 				makeProcessor: func() tracesdk.SpanProcessor {
 					processor := mocks.NewMockSpanProcessor(ctrl)
-					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnStart(gomock.Any(), mocks.NewMockReadWriteSpan(ctrl))
 					processor.EXPECT().OnEnd(gomock.Any())
 
 					return processor
 				},
 				makeSpan: func() tracesdk.ReadWriteSpan {
 					span := mocks.NewMockReadWriteSpan(ctrl)
-					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(3)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(5)
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Status().Return(tracesdk.Status{Code: codes.Error})
+					span.EXPECT().IsRecording().Return(true)
 
 					return span
 				},
@@ -156,17 +173,18 @@ func TestSampled_OnEnd(t *testing.T) {
 			args: args{
 				makeProcessor: func() tracesdk.SpanProcessor {
 					processor := mocks.NewMockSpanProcessor(ctrl)
-					processor.EXPECT().OnStart(ctx, mocks.NewMockReadWriteSpan(ctrl))
+					processor.EXPECT().OnStart(gomock.Any(), mocks.NewMockReadWriteSpan(ctrl))
 					processor.EXPECT().OnEnd(gomock.Any())
 
 					return processor
 				},
 				makeSpan: func() tracesdk.ReadWriteSpan {
 					span := mocks.NewMockReadWriteSpan(ctrl)
-					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(3)
+					span.EXPECT().SpanContext().Return(trace.SpanContext{}).Times(5)
 					span.EXPECT().EndTime().Return(time.Now())
 					span.EXPECT().Status().Return(tracesdk.Status{})
 					span.EXPECT().Attributes().Return([]attribute.KeyValue{attribute.Bool("error", true)})
+					span.EXPECT().IsRecording().Return(true)
 
 					return span
 				},
@@ -207,18 +225,17 @@ func TestSampled_Shutdown(t *testing.T) {
 			makeProcessor: func() *Sampled {
 				processor := mocks.NewMockSpanProcessor(ctrl)
 				processor.EXPECT().Shutdown(ctx).Return(nil)
+				processor.EXPECT().OnStart(gomock.Any(), &NoopSpan{})
 				processor.EXPECT().OnEnd(gomock.Any())
 
 				sampled := NewSampled(processor, tracesdk.AlwaysSample())
-				sampled.traces[trace.TraceID{}] = &traceWrapper{
-					spans: map[trace.SpanID]spanWrapper{
-						trace.SpanID{}: {
-							span: &NoopSpan{},
-							ctx:  ctx,
-						},
+				sampled.traces = map[trace.TraceID]*wrapper{
+					trace.TraceID{1}: {
+						parent:    &NoopSpan{},
+						parentCtx: context.Background(),
+						spans:     map[trace.SpanID]tracesdk.ReadWriteSpan{trace.SpanID{2}: &NoopSpan{}},
+						sampled:   true,
 					},
-					isFinished: true,
-					_hasError:  false,
 				}
 
 				return sampled
@@ -253,18 +270,17 @@ func TestSampled_ForceFlush(t *testing.T) {
 			makeProcessor: func() *Sampled {
 				processor := mocks.NewMockSpanProcessor(ctrl)
 				processor.EXPECT().ForceFlush(ctx).Return(nil)
+				processor.EXPECT().OnStart(gomock.Any(), &NoopSpan{})
 				processor.EXPECT().OnEnd(gomock.Any())
 
 				sampled := NewSampled(processor, tracesdk.AlwaysSample())
-				sampled.traces[trace.TraceID{}] = &traceWrapper{
-					spans: map[trace.SpanID]spanWrapper{
-						trace.SpanID{}: {
-							span: &NoopSpan{},
-							ctx:  ctx,
-						},
+				sampled.traces = map[trace.TraceID]*wrapper{
+					trace.TraceID{1}: {
+						parent:    &NoopSpan{},
+						parentCtx: context.Background(),
+						spans:     map[trace.SpanID]tracesdk.ReadWriteSpan{trace.SpanID{2}: &NoopSpan{}},
+						sampled:   true,
 					},
-					isFinished: true,
-					_hasError:  false,
 				}
 
 				return sampled
@@ -293,7 +309,7 @@ func TestSampled_BaseWork(t *testing.T) {
 		processor.OnEnd(span)
 	}
 
-	assert.Equal(t, map[trace.TraceID]*traceWrapper{}, processor.traces)
+	assert.Equal(t, map[trace.TraceID]*wrapper{}, processor.traces)
 }
 
 func TestSampled_SendSpan(t *testing.T) {
@@ -404,6 +420,40 @@ func TestSampled_SendSpan(t *testing.T) {
 				assert.Len(t, recorder.Ended(), 1, "recorder.Ended() != 1")
 			},
 		},
+		{
+			name: "ChildSpan error status",
+			args: args{
+				sampler: tracesdk.NeverSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				_, span2 := span.TracerProvider().Tracer("").Start(ctx, "next")
+				span2.SetStatus(codes.Error, "test")
+				span2.End()
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 2, "recorder.Ended() != 2")
+			},
+		},
+		{
+			name: "ChildSpan error status",
+			args: args{
+				sampler: tracesdk.NeverSample(),
+			},
+			setter: func(ctx context.Context, span trace.Span) {
+				ctx, span2 := span.TracerProvider().Tracer("").Start(ctx, "next")
+				ctx, span3 := span2.TracerProvider().Tracer("").Start(ctx, "next2")
+				span3.End()
+				ctx, span4 := span2.TracerProvider().Tracer("").Start(ctx, "next3")
+				ctx, span5 := span2.TracerProvider().Tracer("").Start(ctx, "next3")
+				span5.SetStatus(codes.Error, "test")
+				span5.End()
+				span4.End()
+				span2.End()
+			},
+			checker: func(recorder *tracetest.SpanRecorder) {
+				assert.Len(t, recorder.Ended(), 5, "recorder.Ended() != 5")
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -491,7 +541,6 @@ func (n NoopSpanProcessor) Shutdown(ctx context.Context) error                  
 func (n NoopSpanProcessor) ForceFlush(ctx context.Context) error                     { return nil }
 
 func BenchmarkSampled(b *testing.B) {
-
 	b.Run("OnStart", func(b *testing.B) {
 		var (
 			generator = NewSpanGenerator()
