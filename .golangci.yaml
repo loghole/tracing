@@ -53,3 +53,4 @@ linters-settings:
       - wg sync.WaitGroup
       - cc *grpc.ClientConn
       - ss grpc.ServerStream
+      - wr *wrapper

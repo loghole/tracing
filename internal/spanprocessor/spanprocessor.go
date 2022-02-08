@@ -2,18 +2,67 @@ package spanprocessor
 
 import (
 	"context"
+	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel/codes"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type wrapper struct {
+	parent    tracesdk.ReadWriteSpan
+	parentCtx context.Context // nolint:containedctx // need context.
+
+	spans map[trace.SpanID]tracesdk.ReadWriteSpan
+
+	sampled bool
+	once    sync.Once
+
+	sync.Mutex
+}
+
+func (w *wrapper) isSampled(sampler tracesdk.Sampler) bool {
+	w.once.Do(func() {
+		w.sampled = w.checkSampled(sampler)
+	})
+
+	return w.sampled
+}
+
+func (w *wrapper) checkSampled(sampler tracesdk.Sampler) bool {
+	for _, span := range w.spans {
+		if span.Status().Code == codes.Error {
+			return true
+		}
+	}
+
+	for _, span := range w.spans {
+		for _, attr := range span.Attributes() {
+			if strings.EqualFold(string(attr.Key), "error") {
+				return true
+			}
+		}
+	}
+
+	result := sampler.ShouldSample(tracesdk.SamplingParameters{
+		ParentContext: w.parentCtx,
+		TraceID:       w.parent.SpanContext().TraceID(),
+		Name:          w.parent.Name(),
+		Kind:          w.parent.SpanKind(),
+		Attributes:    w.parent.Attributes(),
+		Links:         nil, // skip links, because they are not used in samplers.
+	})
+
+	return result.Decision == tracesdk.RecordAndSample
+}
 
 type Sampled struct {
 	processor tracesdk.SpanProcessor
 	sampler   tracesdk.Sampler
 
-	traces map[trace.TraceID]*traceWrapper
-	mu     sync.Mutex
+	traces map[trace.TraceID]*wrapper
+	mu     sync.RWMutex
 }
 
 func NewSampled(
@@ -23,153 +72,101 @@ func NewSampled(
 	return &Sampled{
 		processor: processor,
 		sampler:   sampler,
-		traces:    make(map[trace.TraceID]*traceWrapper),
+		traces:    make(map[trace.TraceID]*wrapper),
 	}
 }
 
 func (p *Sampled) OnStart(parent context.Context, span tracesdk.ReadWriteSpan) {
-	p.onStart(parent, span)
-	p.processor.OnStart(parent, span)
+	if !span.IsRecording() {
+		return
+	}
+
+	var (
+		spanCtx = span.SpanContext()
+		traceID = spanCtx.TraceID()
+		spanID  = spanCtx.SpanID()
+	)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	wr, ok := p.traces[traceID]
+	if ok {
+		wr.spans[spanID] = span
+
+		return
+	}
+
+	p.traces[traceID] = &wrapper{
+		parent:    span,
+		parentCtx: parent,
+		spans:     map[trace.SpanID]tracesdk.ReadWriteSpan{spanID: span},
+	}
 }
 
 func (p *Sampled) OnEnd(span tracesdk.ReadOnlySpan) {
-	spanCtx := span.SpanContext()
+	var (
+		spanCtx = span.SpanContext()
+		traceID = spanCtx.TraceID()
+	)
 
-	traceWrapper, ok := p.getTrace(spanCtx.TraceID())
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	wr, ok := p.traces[traceID]
 	if !ok {
 		return
 	}
 
-	spanID := spanCtx.SpanID()
-
-	if !traceWrapper.isFinished && !traceWrapper.isParent(spanID) {
+	if !wr.parent.SpanContext().Equal(spanCtx) && wr.parent.IsRecording() {
 		return
 	}
 
-	hasError := traceWrapper.hasError()
-
-	if traceWrapper.isParent(spanID) {
-		traceWrapper.isFinished = true
-
-		for _, span := range traceWrapper.extractFinishedSpans() {
-			p.send(span.ctx, span.span, hasError)
-		}
-
-		return
-	}
-
-	if spanWrapper, ok := traceWrapper.spans[spanID]; ok {
-		p.send(spanWrapper.ctx, span, hasError)
-	}
+	p.finishWrapper(wr)
 }
 
 func (p *Sampled) Shutdown(ctx context.Context) error {
-	p.flush()
+	p.flush() // nolint:contextcheck // not need.
 
 	return p.processor.Shutdown(ctx)
 }
 
 func (p *Sampled) ForceFlush(ctx context.Context) error {
-	p.flush()
+	p.flush() // nolint:contextcheck // not need.
 
 	return p.processor.ForceFlush(ctx)
 }
 
-func (p *Sampled) onStart(parent context.Context, span tracesdk.ReadWriteSpan) {
+func (p *Sampled) flush() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	spanCtx := span.SpanContext()
-
-	if val, ok := p.traces[spanCtx.TraceID()]; ok {
-		val.storeSpan(parent, span)
-	} else {
-		p.traces[spanCtx.TraceID()] = &traceWrapper{
-			parentSpanID: spanCtx.SpanID(),
-			spans: map[trace.SpanID]spanWrapper{
-				spanCtx.SpanID(): {span: span, ctx: parent},
-			},
-		}
+	for _, wr := range p.traces {
+		p.finishWrapper(wr) // nolint:contextcheck // not need.
 	}
 }
 
-func (p *Sampled) getTrace(traceID trace.TraceID) (*traceWrapper, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Sampled) finishWrapper(wr *wrapper) {
+	traceID := wr.parent.SpanContext().TraceID()
 
-	tr, ok := p.traces[traceID]
+	if !wr.isSampled(p.sampler) {
+		delete(p.traces, traceID)
 
-	return tr, ok
-}
-
-func (p *Sampled) send(
-	parent context.Context,
-	span tracesdk.ReadOnlySpan,
-	hasError bool,
-) {
-	if hasError {
-		p.processor.OnEnd(span)
-	} else if sr := p.sampler.ShouldSample(tracesdk.SamplingParameters{
-		ParentContext: parent,
-		TraceID:       span.SpanContext().TraceID(),
-		Name:          span.Name(),
-		Kind:          span.SpanKind(),
-		Attributes:    span.Attributes(),
-		Links:         linksToTraceLinks(span.Links()),
-	}); sr.Decision == tracesdk.RecordAndSample {
-		p.processor.OnEnd(span)
-	}
-
-	p.removeTraces(span.SpanContext().TraceID())
-}
-
-func (p *Sampled) removeTraces(traceID trace.TraceID) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	tr, ok := p.traces[traceID]
-	if !ok {
 		return
 	}
 
-	if len(tr.spans) == 0 {
+	for _, span := range wr.spans {
+		if span.EndTime().IsZero() {
+			continue
+		}
+
+		delete(wr.spans, span.SpanContext().SpanID())
+
+		p.processor.OnStart(trace.ContextWithSpan(context.Background(), span), span)
+		p.processor.OnEnd(span)
+	}
+
+	if len(wr.spans) == 0 {
 		delete(p.traces, traceID)
 	}
-}
-
-func (p *Sampled) flush() {
-	var wg sync.WaitGroup
-
-	p.mu.Lock()
-
-	for _, tr := range p.traces {
-		hasError := tr.hasError()
-
-		for _, span := range tr.extractFinishedSpans() {
-			wg.Add(1)
-
-			go func(span spanWrapper) {
-				defer wg.Done()
-
-				p.send(span.ctx, span.span, hasError)
-			}(span)
-		}
-	}
-
-	p.mu.Unlock()
-
-	wg.Wait()
-}
-
-func linksToTraceLinks(links []tracesdk.Link) []trace.Link {
-	resp := make([]trace.Link, 0, len(links))
-
-	for _, l := range links {
-		resp = append(resp, trace.Link{
-			SpanContext: l.SpanContext,
-			Attributes:  l.Attributes,
-		})
-	}
-
-	return resp
 }
