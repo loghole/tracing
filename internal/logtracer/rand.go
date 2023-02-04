@@ -14,7 +14,7 @@ type lockedSource struct {
 
 // NewRand returns a rand.Rand that is threadsafe.
 func NewRand(seed int64) *rand.Rand {
-	return rand.New(&lockedSource{src: rand.NewSource(seed)}) // nolint:gosec // it's ok
+	return rand.New(&lockedSource{src: rand.NewSource(seed)}) //nolint:gosec // it's ok
 }
 
 func (r *lockedSource) Int63() (n int64) {

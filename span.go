@@ -25,13 +25,12 @@ type Span struct {
 //
 // Example:
 //
-// func example(ctx context.Context) {
-//     defer tracing.ChildSpan(&ctx).End()
+//	func example(ctx context.Context) {
+//	    defer tracing.ChildSpan(&ctx).End()
 //
-//     time.Sleep(time.Second)
-// }
-//
-func ChildSpan(ctx *context.Context) (s *Span) { // nolint:gocritic
+//	    time.Sleep(time.Second)
+//	}
+func ChildSpan(ctx *context.Context) (s *Span) { //nolint:gocritic
 	s = &Span{}
 
 	if span := trace.SpanFromContext(*ctx); span != nil {
@@ -165,7 +164,7 @@ func callerName() string {
 	return list[len(list)-1]
 }
 
-func attributeFromInterface(key string, value interface{}) attribute.KeyValue { // nolint:cyclop // it's ok.
+func attributeFromInterface(key string, value interface{}) attribute.KeyValue { //nolint:cyclop // it's ok.
 	switch val := value.(type) {
 	case bool:
 		return attribute.Bool(key, val)

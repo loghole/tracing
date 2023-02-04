@@ -71,7 +71,7 @@ func StreamServerInterceptor(tracer trace.Tracer) grpc.StreamServerInterceptor {
 
 type tracingServerStream struct {
 	grpc.ServerStream
-	ctx context.Context // nolint:containedctx // need internal context.
+	ctx context.Context //nolint:containedctx // need internal context.
 }
 
 func (ss *tracingServerStream) Context() context.Context {

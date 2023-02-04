@@ -120,8 +120,9 @@ func setErrorTag(ctx context.Context) {
 	}
 }
 
-func metricHook(entry zapcore.Entry) error { // nolint:gocritic // implement zap.Hooks()
-	switch entry.Level { // nolint:exhaustive // used need only this values.
+//nolint:gocritic // implement zap.Hooks()
+func metricHook(entry zapcore.Entry) error {
+	switch entry.Level { //nolint:exhaustive // used need only this values.
 	case zapcore.DebugLevel:
 		metrics.DebugLogsCounter.Inc()
 	case zapcore.InfoLevel:
