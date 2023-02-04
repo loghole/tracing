@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// nolint:gochecknoglobals // using metrics in clients.
+//nolint:gochecknoglobals // using metrics in clients.
 var (
 	logsCounters = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        "logs_total",

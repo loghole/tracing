@@ -1,6 +1,9 @@
 run:
   tests: false
-  timeout: 5m
+  timeout: 10m
+  skip-dirs:
+    - example/
+    - mocks/
 linters:
   enable-all: true
   disable:
@@ -8,7 +11,17 @@ linters:
     - exhaustivestruct
     - ireturn
     - godot
-  fast: false
+    - interfacebloat
+    - deadcode # is deprecated (since v1.49.0)
+    - structcheck # is deprecated (since v1.49.0)
+    - scopelint # is deprecated (since v1.39.0)
+    - golint # is deprecated (since v1.41.0)
+    - interfacer # is deprecated (since v1.38.0)
+    - maligned # is deprecated (since v1.38.0)
+    - ifshort # is deprecated (since v1.48.0)
+    - nosnakecase # is deprecated (since v1.48.1)
+    - varcheck # is deprecated (since v1.49.0)
+  fast: true
 linters-settings:
   gocritic:
     enabled-tags:
@@ -25,12 +38,6 @@ linters-settings:
 
   gci:
     local-prefixes: github.com/loghole/tracing
-
-  wrapcheck:
-    ignoreSigs:
-      - .Errorf(
-      - errors.New(
-      - .WrapWithCode(
 
   varnamelen:
     # The longest distance, in source lines, that is being considered a "small scope." (defaults to 5)

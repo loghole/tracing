@@ -34,23 +34,22 @@ type Tracer struct {
 //
 // Example:
 //
-// func main() {
-//     tracer, err := tracing.NewTracer(DefaultConfiguration(
-//         "example-service",
-//         "udp://127.0.0.1:6831",
-//     ))
-//     if err != nil {
-//         log.Fatalf("init tracer: %v", err)
-//     }
+//	func main() {
+//	    tracer, err := tracing.NewTracer(DefaultConfiguration(
+//	        "example-service",
+//	        "udp://127.0.0.1:6831",
+//	    ))
+//	    if err != nil {
+//	        log.Fatalf("init tracer: %v", err)
+//	    }
 //
-//     defer tracer.Close()
+//	    defer tracer.Close()
 //
-//     _, span := tracer.NewSpan().WithName("example-span").StartWithContext(context.Background())
-//     defer span.End()
+//	    _, span := tracer.NewSpan().WithName("example-span").StartWithContext(context.Background())
+//	    defer span.End()
 //
-//     time.Sleep(time.Second)
-// }
-//
+//	    time.Sleep(time.Second)
+//	}
 func NewTracer(configuration *Configuration) (*Tracer, error) {
 	if err := configuration.validate(); err != nil {
 		return nil, err

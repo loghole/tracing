@@ -14,7 +14,7 @@ import (
 var ErrInvalidConfiguration = errors.New("invalid configuration")
 
 // Configuration configures Tracer.
-type Configuration struct { // nolint:govet // not need.
+type Configuration struct { //nolint:govet // not need.
 	ServiceName string
 	Addr        string
 	Disabled    bool

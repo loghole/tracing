@@ -12,7 +12,7 @@ import (
 
 type wrapper struct {
 	parent    tracesdk.ReadWriteSpan
-	parentCtx context.Context // nolint:containedctx // need context.
+	parentCtx context.Context //nolint:containedctx // need context.
 
 	spans map[trace.SpanID]tracesdk.ReadWriteSpan
 
@@ -126,13 +126,13 @@ func (p *Sampled) OnEnd(span tracesdk.ReadOnlySpan) {
 }
 
 func (p *Sampled) Shutdown(ctx context.Context) error {
-	p.flush() // nolint:contextcheck // not need.
+	p.flush() //nolint:contextcheck // not need.
 
 	return p.processor.Shutdown(ctx)
 }
 
 func (p *Sampled) ForceFlush(ctx context.Context) error {
-	p.flush() // nolint:contextcheck // not need.
+	p.flush() //nolint:contextcheck // not need.
 
 	return p.processor.ForceFlush(ctx)
 }
@@ -142,7 +142,7 @@ func (p *Sampled) flush() {
 	defer p.mu.Unlock()
 
 	for _, wr := range p.traces {
-		p.finishWrapper(wr) // nolint:contextcheck // not need.
+		p.finishWrapper(wr) //nolint:contextcheck // not need.
 	}
 }
 

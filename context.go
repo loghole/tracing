@@ -6,7 +6,7 @@ import (
 )
 
 type noCancelCtx struct {
-	parent context.Context // nolint:containedctx // need parent context.
+	parent context.Context //nolint:containedctx // need parent context.
 }
 
 func (c noCancelCtx) Deadline() (time.Time, bool)       { return time.Time{}, false }

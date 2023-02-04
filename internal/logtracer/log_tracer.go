@@ -31,7 +31,7 @@ func (p *LogTraceProvider) Tracer(_ string, _ ...trace.TracerOption) trace.Trace
 
 	logtracer.randomNumber = func() uint64 {
 		var (
-			generator = pool.Get().(rand.Source) // nolint:forcetypeassert // not need check.
+			generator = pool.Get().(rand.Source) //nolint:forcetypeassert // not need check.
 			number    = uint64(generator.Int63())
 		)
 
