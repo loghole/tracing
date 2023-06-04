@@ -61,7 +61,7 @@ func Handler(tracer trace.Tracer, options ...Option) func(next http.Handler) htt
 
 func (m *Middleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !m.options.Filter(r) {
+		if !m.options.Filter(r) || r.Header.Get("Upgrade") != "" {
 			next.ServeHTTP(w, r)
 
 			return
